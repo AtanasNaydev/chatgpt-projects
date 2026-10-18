@@ -6,7 +6,9 @@ SOURCE=Path(__file__).resolve().parents[1]
 def run():
     with tempfile.TemporaryDirectory() as dir:
         root=Path(dir);shutil.copy2(SOURCE/'server.py',root/'server.py');shutil.copytree(SOURCE/'static',root/'static')
-        env={**os.environ,'MISSION404_PORT':'8877'}
+        # Never allow integration tests to use deployment secrets or production storage.
+        env={k:v for k,v in os.environ.items() if k not in ('RENDER','DATABASE_URL','MISSION404_CLOUD_MODE','MISSION404_TEACHER_KEY','PORT')}
+        env['MISSION404_PORT']='8877'
         proc=subprocess.Popen(['python',str(root/'server.py'),'--no-browser'],cwd=root,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
         base='http://127.0.0.1:8877/api/'
         try:

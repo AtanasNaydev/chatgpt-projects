@@ -4,7 +4,7 @@ from __future__ import annotations
 import hmac, json, mimetypes, os, secrets, socket, string, sys, threading, time, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 
 ROOT = Path(__file__).resolve().parent
 DATA_PATH = ROOT / 'game_data.json'
@@ -353,6 +353,39 @@ class Handler(BaseHTTPRequestHandler):
     def dispatch(self,method):
         try:
             split=urlsplit(self.path);path=split.path
+            if path=='/qr.svg' and method=='GET':
+                # Render the join URL locally: no external QR service sees the class code.
+                import qrcode
+                code=parse_qs(split.query).get('code',[''])[0]
+                session=DATA.get('session')
+                if not session or code!=session['code']:fail('Няма активен код за присъединяване.',404)
+                host=self.headers.get('Host','').strip()
+                if not host or len(host)>120 or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:[]" for c in host):
+                    fail('Невалиден адрес.',400)
+                scheme='https' if RENDER_MODE else 'http'
+                link=f"{scheme}://{host}/join?code={code}"
+                qr=qrcode.QRCode(version=None,error_correction=qrcode.constants.ERROR_CORRECT_M,box_size=1,border=3)
+                qr.add_data(link)
+                qr.make(fit=True)
+                rows=qr.get_matrix();side=len(rows)
+                cmds=[]
+                for y,row in enumerate(rows):
+                    x=0
+                    while x<side:
+                        if not row[x]:x+=1;continue
+                        x0=x
+                        while x<side and row[x]:x+=1
+                        cmds.append(f"M{x0} {y}h{x-x0}v1h-{x-x0}z")
+                svg=f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {side} {side}" shape-rendering="crispEdges"><path fill="#fff" d="M0 0h{side}v{side}H0z"/><path fill="#102538" d="{" ".join(cmds)}"/></svg>'
+                body=svg.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type','image/svg+xml; charset=utf-8')
+                self.send_header('Cache-Control','no-store')
+                self.send_header('X-Content-Type-Options','nosniff')
+                self.send_header('Content-Security-Policy',"default-src 'none'; style-src 'none'; sandbox")
+                self.send_header('Content-Length',str(len(body)))
+                self.end_headers();self.wfile.write(body)
+                return
             if path.startswith('/api/'):
                 data={}
                 if method=='POST':

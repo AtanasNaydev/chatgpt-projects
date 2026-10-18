@@ -373,7 +373,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(revision,(int,float)) or float(revision)!=float(previous.get('updated_at',0) if previous else 0):
                     fail('Полето е променено от съотборник. Копирайте своя текст, обновете полето и обединете редакциите.',409)
                 entry={'value':value,'nickname':player['nickname'],'player_id':player['id'],'updated_at':now()}
-                t['doc'][field]=entry;t['edits'].append({'field':field,**entry});save();return {'ok':True}
+                t['doc'][field]=entry;t['edits'].append({'field':field,**entry});save();return {'ok':True,'updated_at':entry['updated_at']}
             if path=='/api/student/comment' and method=='POST':
                 s,t,player=get_player(self.headers);ensure_running(s,t,2)
                 if p.get('action')=='add':

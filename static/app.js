@@ -37,20 +37,82 @@ function m1Options(key,code){
  return items;
 }
 const m4Needs=[
- ['organizer','Организаторът изготвя и променя програмата.'],
- ['teacher','Учителят проверява и предлага корекции, без да променя съдържанието.'],
- ['visitors','Гостите трябва само да прочетат готовата програма.'],
- ['outsider','Непознат човек не трябва да получава файла.'],
- ['link','Настройка за общ достъп до файла.']
+ ['organizer','Координаторът подготвя програмата и трябва да пренарежда сесиите преди публикуване.'],
+ ['teacher','Преподавателят проверява фактите и предлага уточнения в коментари, но не променя текста.'],
+ ['visitors','Гостите трябва да отворят одобрената програма, без да могат да я променят.'],
+ ['outsider','Непознат акаунт е поискал достъп до чернова с имейли на участници.'],
+ ['link','Черновата съдържа контакти и непубликувани материали; линкът трябва да е достъпен само за изрично поканени хора.'],
+ ['cowriter','Вторият организатор трябва да допише и коригира раздел „Технически изисквания“.'],
+ ['press','Журналистът може да види финалната програма, но няма задачи по редактиране.'],
+ ['expert','Външен експерт трябва да маркира неточности и да предложи корекции, без сам да заменя съдържание.']
 ];
-const m4Rights=[['edit','Редактор'],['comment','Коментатор'],['view','Читател'],['none','Без достъп'],['restricted','Ограничено споделяне'],['public-edit','Всеки с връзката може да редактира']];
+const m4Rights=[
+ ['edit','Редактор — може да променя съдържанието'],
+ ['comment','Коментатор — може да предлага промени'],
+ ['view','Читател — само преглежда'],
+ ['none','Без достъп — заявката е отказана'],
+ ['restricted','Ограничен линк — само поканени хора'],
+ ['public-view','Всеки с линка може да чете'],
+ ['public-comment','Всеки с линка може да коментира'],
+ ['public-edit','Всеки с линка може да редактира']
+];
+const m4Incidents=[
+ ['backup','Възстановяваме последното копие, без да променяме настройките на линка.'],
+ ['revoke','Ограничаваме споделянето и отнемаме достъпа на неупълномощения потребител.'],
+ ['notify','Уведомяваме колегите, но оставяме правата непроменени до края на срещата.'],
+ ['rename','Преименуваме файла и изпращаме нов линк със същите настройки.']
+];
+const m4Recovery=[
+ ['copy','Запазваме текущата версия като окончателна, за да не изгубим редакциите.'],
+ ['restore','Сравняваме историята на версиите и възстановяваме последното проверено съдържание.'],
+ ['rewrite','Въвеждаме текста по памет, без да проверяваме историята на промените.'],
+ ['delete','Изтриваме историята на редакциите, за да няма следи от инцидента.']
+];
 const m5Categories=[
- ['webinar','Видео конференция',['Google Meet','Microsoft Teams','Zoom','Gmail']],
- ['docs','Съвместен документ',['Google Docs','Word Online','Photoshop']],
- ['files','Съхранение на файлове',['Google Drive','OneDrive','YouTube']],
- ['time','Съгласуване на час',['Google Maps','Doodle','Paint']],
- ['ideas','Дъска за идеи',['Padlet','Excel','Калкулатор']]
+ ['webinar','Уебинар на живо: два лектора от разстояние представят слайдове, а гости задават въпроси. Организаторът трябва да контролира достъпа.',[
+  ['record','Публикуваме предварителен запис и събираме въпроси след края.'],
+  ['moderated','Провеждаме видеосреща с модератор, ограничен достъп, споделяне на екран и чат за въпроси.'],
+  ['open','Провеждаме видеосреща с публичен линк, в която всеки гост може да управлява представянето.'],
+  ['hybrid','Лекторите разговарят по видео само помежду си, а гостите получават презентацията по имейл.']
+ ]],
+ ['docs','Трима автори пишат една програма едновременно; преподавателят коментира, а външни хора не трябва да редактират.',[
+  ['email-copies','Всеки изпраща своя версия по имейл, а преподавателят избира последната получена.'],
+  ['restricted-edit','Използваме общ документ с права за конкретни редактори, коментатор и история на версиите.'],
+  ['public-edit','Използваме общ документ с достъп за редакция на всеки, който има линка.'],
+  ['public-view','Използваме общ документ, който всички могат да четат, но никой от авторите не може да редактира.']
+ ]],
+ ['files','Гост-лектор трябва да изтегли един одобрен PDF, а останалите чернови и лични данни да останат скрити.',[
+  ['whole-folder','Даваме достъп за четене до цялата папка, включително подготвителните чернови.'],
+  ['only-pdf','Споделяме само одобрения PDF с права за преглед за конкретния лектор.'],
+  ['edit-everyone','Даваме права за редакция на папката, за да може лекторът сам да намери файла.'],
+  ['send-credentials','Изпращаме данните за вход на организатора вместо отделен достъп до PDF.']
+ ]],
+ ['time','Шестима поканени са в различни часови зони. Трябва да съберете свободните им часове, преди да изпратите покана.',[
+  ['impose','Избираме удобен за организатора час и изпращаме окончателна покана без проверка.'],
+  ['poll','Създаваме анкета за няколко часа, сравняваме отговорите и потвърждаваме избрания слот.'],
+  ['chat-list','Изпращаме в чата шест отделни списъка с часове и чакаме всички да се споразумеят.'],
+  ['first-confirm','Изпращаме покана за първия свободен час, който е посочил един от гостите.']
+ ]],
+ ['ideas','Четири екипа предлагат теми за конференцията. Идеите трябва да се групират визуално и да се приоритизират.',[
+  ['single-slide','Един ученик записва предложенията в слайд и сам избира три теми.'],
+  ['chat-scroll','Всеки изпраща тема в чат, а организаторът следи последните съобщения.'],
+  ['padlet-vote','Събираме идеи в обща визуална дъска, групираме ги по теми и гласуваме.'],
+  ['private-notes','Всеки пази идеите в личен файл, а накрая преразказва избраните предложения.']
+ ]],
+ ['feedback','След уебинара трябва да съберете анонимна оценка за организацията и да обобщите резултатите без публични лични данни.',[
+  ['named-survey','Изпращаме анкета с задължителни имена и публикуваме всички индивидуални отговори.'],
+  ['public-wall','Пускаме публична стена, в която участниците пишат свободни коментари под имената си.'],
+  ['chat-replies','Молим участниците да изпратят оценки в групов чат, а модераторът брои съобщенията.'],
+  ['anonymous-form','Създаваме анонимна анкета с обобщени резултати, достъпни само за организаторите.']
+ ]]
 ];
+// Same scenario gets a stable permutation in every browser, independent of row number.
+function shuffledChoices(items,key,sessionCode){
+ const list=[...items];let n=0x811c9dc5;
+ for(const ch of String(key)+'|'+String(sessionCode)){n^=ch.charCodeAt(0);n=Math.imul(n,0x01000193)>>>0;}
+ for(let i=list.length-1;i>0;i--){n^=n<<13;n^=n>>>17;n^=n<<5;const j=(n>>>0)%(i+1);[list[i],list[j]]=[list[j],list[i]];}
+ return list;
+}
 const calSlots=[['mon14','Пон. 14:00'],['mon15','Пон. 15:00'],['tue14','Вт. 14:00'],['tue15','Вт. 15:00'],['wed14','Ср. 14:00'],['wed15','Ср. 15:00']];
 const calPeople=[['Мария',['mon14','tue15','wed14']],['Иван',['tue14','tue15','wed15']],['Нина',['mon15','tue15','wed14']],['Георги',['tue15','wed14','wed15']],['Теодора',['mon14','tue15','wed15']]];
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -140,8 +202,29 @@ function missionFrame(d,m,content){return playHeader(d)+`<div class="card emphas
 function m1(d){let rows=m1Needs.map(([key,label],i)=>`<div class="challenge"><div><span class="kicker">СИТУАЦИЯ 0${i+1}</span><strong>${label}</strong></div><select class="input" data-choose="m1" data-id="${key}"><option value="">— Избери категория —</option>${m1Options(key,d.session.code).map(([value,txt])=>`<option value="${value}" ${ui.mission1[key]===value?'selected':''}>${txt}</option>`).join('')}</select></div>`).join('');return missionFrame(d,1,`<div class="card"><p class="instruction">Разгледайте осем реални проблема около конференцията. Изберете най-подходящия инструмент за всеки. Една категория може да е необходима повече от веднъж — сравнявайте възможностите, не номерата.</p><div class="mission-grid">${rows}</div><div class="divider"></div><label class="field">Посочете две ситуации и аргументирайте защо конкретни инструменти решават проблема.</label><textarea id="m1-reason" placeholder="За ситуация ... избираме ... защото ...; за ситуация ... избираме ... поради ...">${esc(ui.typed.m1||'')}</textarea><label class="field" style="margin-top:14px">Сравнение: защо друга привидно подходяща технология не върши същата работа?</label><textarea id="m1-contrast" placeholder="Чатът и общият документ си приличат, но ...">${esc(ui.typed.m1contrast||'')}</textarea><div class="flex" style="margin-top:17px">${btn('submit1','ПРОВЕРИ РЕШЕНИЕТО →','primary')}</div></div>`);}
 function m2(d){const doc=d.m2.doc;const titles=[['title','Заглавие на конференцията'],['audience','За кого е предназначена?'],['program','Програма (3 теми)'],['tools','Дигитални средства за организация'],['roles','Роли и отговорности'],['fallback','Резервен план, ако видеовръзката прекъсне']];return missionFrame(d,2,`<div class="info" style="margin-bottom:17px"><strong>Тайна информация:</strong> Всеки ученик вижда само своята част от уликите. Разкажете си я и изгответе заедно общ план!</div><div class="doc-grid"><div class="card"><span class="eyebrow">СПОДЕЛЕН ОНЛАЙН ДОКУМЕНТ · ТРЕНИРОВЪЧЕН МОДУЛ</span><h3 class="card-title">План за училищен уебинар</h3><div class="stack">${titles.map(([id,title])=>`<div class="doc-field"><label>${title}</label><textarea data-field="${id}" placeholder="Екипът попълва това поле...">${esc(doc[id]?.value||'')}</textarea><div class="flex between"><small class="meta">${doc[id]?'Последна промяна: '+esc(doc[id].nickname):'Няма въведена информация'}</small><button class="btn small ghost" data-act="save-field" data-field="${id}">Запази промяната</button></div></div>`).join('')}</div></div><div class="stack"><div class="card emphasis"><span class="eyebrow">ТВОИТЕ УЛИКИ</span><div data-m2-clues>${d.m2.clues.length?d.m2.clues.map(clue=>`<div class="info" style="margin-top:12px">${esc(clue)}</div>`).join(''):'<p class="help">Няма получена улика. Покани останалите.</p>'}</div><p class="help">Не можеш да видиш уликите на другите агенти — общувайте помежду си.</p></div><div class="card"><span class="eyebrow">ЧЛЕНОВЕ НА ЕКИПА</span><div class="stack" data-m2-members style="gap:8px;margin-top:10px">${d.players.map(pl=>`<div class="flex between"><span class="user-chip ${pl.nickname===d.me.nickname?'me':''}">${pl.online?'● ':''}${esc(pl.nickname)}</span><span class="subtle">${pl.contributions} редакции</span></div>`).join('')}</div><p class="help">Всеки член трябва да запази поне една промяна.</p></div><div class="card"><span class="eyebrow">КОМЕНТАРИ И ПОДОБРЕНИЯ</span><div data-m2-comments style="margin:12px 0">${d.m2.comments.map(c=>`<div class="chatmsg"><small>${esc(c.nickname)}</small><p>${esc(c.body)}</p>${c.applied?'<span class="tag green">✓ Приложено</span>':`<button class="btn small ghost" data-act="apply-comment" data-comment="${c.id}">Отбележи като приложено</button>`}</div>`).join('')||'<p class="help">Още няма коментари.</p>'}</div><textarea id="comment" placeholder="Предложение за подобрение..." style="min-height:74px"></textarea><div style="margin-top:9px">${btn('add-comment','ИЗПРАТИ КОМЕНТАР','ghost small')}</div></div></div></div><div class="card" style="margin-top:17px"><p class="help">Попълнете и шестте полета. Всеки ученик трябва да запише своя редакция, а екипът да обсъди и приложи поне два коментара. Тогава натиснете проверка.</p><div class="flex" style="margin-top:13px">${btn('submit2','ПОТВЪРДИ СЪВМЕСТНАТА РАБОТА →','primary')}</div></div>`);}
 function m3(d){const selected=ui.mission3.slot||'';return missionFrame(d,3,`<div class="card"><p class="instruction">Петима участници са посочили свободните си часове. Намерете <strong>единствения</strong> удобен час за всички и изберете инструмент за координиране на срещата.</p><div class="schedule"><table><thead><tr><th>Участник</th>${calSlots.map(v=>`<th>${v[1]}</th>`).join('')}</tr></thead><tbody>${calPeople.map(([name,slots])=>`<tr><td><strong>${name}</strong></td>${calSlots.map(([id])=>`<td class="${slots.includes(id)?'available':'off'}">${slots.includes(id)?'✓':'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div><span class="eyebrow">ИЗБЕРИ ОБЩИЯ ЧАС</span><div class="choices" style="margin:13px 0 22px">${calSlots.map(([slot,label])=>`<button class="choice ${selected===slot?'active':''}" data-act="choose-slot" data-slot="${slot}">${label}</button>`).join('')}</div><div class="formgrid"><div><label class="field">Инструмент за съгласуване на дата</label><select id="m3-tool" class="input" data-choose="m3-tool"><option value="">Избери инструмент</option>${['Padlet','Doodle','Google Docs','Paint'].map(x=>`<option ${ui.mission3.tool===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label class="field">Защо този инструмент е подходящ?</label><textarea id="m3-reason" placeholder="Когато участниците имат различни графици...">${esc(ui.typed.m3||'')}</textarea></div></div><div class="divider"></div><label class="field">Гост не успява да се включи в срещата. Как гарантирате, че ще получи информация и ще може да зададе въпроси?</label><select class="input" data-choose="m3-backup"><option value="">Изберете подход</option><option value="record" ${ui.mission3.backup==='record'?'selected':''}>Изпращаме запис/материали с ограничен достъп и възможност за последващи въпроси</option><option value="exclude" ${ui.mission3.backup==='exclude'?'selected':''}>Не му изпращаме нищо, след като е пропуснал срещата</option><option value="public" ${ui.mission3.backup==='public'?'selected':''}>Публикуваме всички материали и лични данни публично</option></select><div style="margin-top:18px">${btn('submit3','ПРОВЕРИ ПЛАНИРАНЕТО →','primary')}</div></div>`);}
-function m4(d){return missionFrame(d,4,`<div class="card"><div class="info warning" style="margin-bottom:16px"><strong>ОПАСНОСТ:</strong> „Всеки с връзката може да редактира“. Открийте какви права трябва да има всеки участник и ограничете общия достъп.</div><div class="mission-grid">${m4Needs.map(([key,label])=>`<div class="challenge"><div><span class="kicker">НАСТРОЙКА</span><strong>${label}</strong></div><select class="input" data-choose="m4" data-id="${key}"><option value="">— Избери право —</option>${m4Rights.filter(x=>key==='link'?['restricted','public-edit'].includes(x[0]):!['restricted','public-edit'].includes(x[0])).map(([val,txt])=>`<option value="${val}" ${ui.mission4[key]===val?'selected':''}>${txt}</option>`).join('')}</select></div>`).join('')}</div><div class="divider"></div><label class="field">Инцидент: външен човек е променил съдържанието чрез публичен линк. Какво правите първо?</label><select class="input" data-choose="m4" data-id="incident"><option value="">Изберете действие</option><option value="delete" ${ui.mission4.incident==='delete'?'selected':''}>Изтриваме документа, за да спрем промяната</option><option value="revoke" ${ui.mission4.incident==='revoke'?'selected':''}>Спираме нежелания достъп и проверяваме историята на версиите</option><option value="ignore" ${ui.mission4.incident==='ignore'?'selected':''}>Оставяме настройките, защото промените се виждат</option></select><div class="divider"></div><label class="field">Каква опасност може да възникне при неправилно споделяне и как ще я ограничите?</label><textarea id="m4-reason" placeholder="Ако всеки с връзката има право да редактира...">${esc(ui.typed.m4||'')}</textarea><div style="margin-top:16px">${btn('submit4','ПРОВЕРИ ЗАЩИТАТА →','primary')}</div></div>`);}
-function m5(d){return missionFrame(d,5,`<div class="card"><p class="instruction">Конференцията е почти спасена. Изберете подходящ инструмент за всяка дейност и аргументирайте два от изборите си.</p><div class="mission-grid">${m5Categories.map(([key,label,choices])=>`<div class="challenge"><div><span class="kicker">РЕСУРС</span><strong>${label}</strong></div><select class="input" data-choose="m5" data-id="${key}"><option value="">— Избери средство —</option>${choices.map(x=>`<option ${ui.mission5[key]===x?'selected':''}>${x}</option>`).join('')}</select></div>`).join('')}</div><div class="divider"></div><label class="field">Един участник има нестабилен интернет и не може да гледа видео. Как ще го включите?</label><select class="input" data-choose="m5" data-id="fallback"><option value="">Изберете решение</option><option value="video" ${ui.mission5.fallback==='video'?'selected':''}>Изискваме непрекъснато включена камера</option><option value="async" ${ui.mission5.fallback==='async'?'selected':''}>Даваме асинхронен достъп до материали и писмени въпроси</option><option value="exclude" ${ui.mission5.fallback==='exclude'?'selected':''}>Не го включваме в групата</option></select><div class="divider"></div><div class="two"><div><label class="field">Обосновка №1 — избор на средство за общуване</label><textarea id="m5-reason1" placeholder="Избрахме ..., защото ...">${esc(ui.typed.m5a||'')}</textarea></div><div><label class="field">Обосновка №2 — избор на средство за обща работа</label><textarea id="m5-reason2" placeholder="Избрахме ..., защото ...">${esc(ui.typed.m5b||'')}</textarea></div></div><div style="margin-top:17px">${btn('submit5','АКТИВИРАЙ ФИНАЛНИЯ КОД →','primary')}</div></div>`);}
+function m4(d){
+ const code=d.session.code;
+ const rows=m4Needs.map(([key,label],i)=>{
+   const allowed=key==='link' ? m4Rights.filter(([id])=>['restricted','public-view','public-comment','public-edit'].includes(id))
+     : m4Rights.filter(([id])=>['edit','comment','view','none'].includes(id));
+   const opts=shuffledChoices(allowed,'m4-'+key,code).map(([id,title])=>`<option value="${id}" ${ui.mission4[key]===id?'selected':''}>${esc(title)}</option>`).join('');
+   return `<div class="challenge"><div><span class="kicker">СИТУАЦИЯ 0${i+1}</span><strong>${esc(label)}</strong></div><select class="input" data-choose="m4" data-id="${key}"><option value="">— Избери подходящо право —</option>${opts}</select></div>`;
+ }).join('');
+ const question=(key,items,label)=>`<label class="field">${label}</label><select class="input" data-choose="m4" data-id="${key}"><option value="">Изберете действие</option>${shuffledChoices(items,'m4-'+key,code).map(([id,title])=>`<option value="${id}" ${ui.mission4[key]===id?'selected':''}>${esc(title)}</option>`).join('')}</select>`;
+ return missionFrame(d,4,`<div class="card"><div class="info warning" style="margin-bottom:16px"><strong>ИНЦИДЕНТ:</strong> В чернова има контакти на ученици и гости. Непознат потребител е получил достъп чрез неподходящ линк. Възстановете сигурността, без да прекъсвате работата на упълномощените организатори.</div><p class="instruction">За всеки участник изберете минималното право, с което може да изпълни задачата си. Отговорите са в различен ред — дадено право може да се използва повече от веднъж.</p><div class="mission-grid">${rows}</div><div class="divider"></div>${question('incident',m4Incidents,'Непознатият вече е направил промяна. Коя е първата стъпка за ограничаване на инцидента?')}<div class="divider"></div>${question('recovery',m4Recovery,'Как ще установите и възстановите достоверната версия на документа?')}<div class="divider"></div><label class="field">Обяснете риска, последователността на действията и как ще избегнете повторение.</label><textarea id="m4-reason" placeholder="Първо бихме..., после ще проверим...; за да предотвратим..." >${esc(ui.typed.m4||'')}</textarea><div style="margin-top:16px">${btn('submit4','ПРОВЕРИ ЗАЩИТАТА →','primary')}</div></div>`);
+}
+function m5(d){
+ const rows=m5Categories.map(([key,label,choices],i)=>
+   `<div class="challenge"><div><span class="kicker">ЗАДАЧА 0${i+1}</span><strong>${esc(label)}</strong></div><select class="input" data-choose="m5" data-id="${key}"><option value="">— Избери пълен работен план —</option>${shuffledChoices(choices,'m5-'+key,d.session.code).map(([id,title])=>`<option value="${id}" ${ui.mission5[key]===id?'selected':''}>${esc(title)}</option>`).join('')}</select></div>`
+ ).join('');
+ const fallback=[
+   ['async','Предоставяме материали за изтегляне и възможност за писмени въпроси със защитен достъп.'],
+   ['video','Изискваме камерата да остане включена, но намаляваме резолюцията на презентацията.'],
+   ['record-public','Качваме публичен запис, включително чат с лични данни, за да не се регистрират гостите.'],
+   ['remove','Изключваме участника от обсъжданията, но му изпращаме финалния сертификат.']
+ ];
+ return missionFrame(d,5,`<div class="card"><p class="instruction">Финално предизвикателство: съставете цялостен план за дигитална конференция. За всяка ситуация има няколко привидно разумни подхода, но само един удовлетворява всички изисквания.</p><div class="mission-grid">${rows}</div><div class="divider"></div><label class="field">Участник със слаба интернет връзка не може да проследи видеото. Как ще го включите, без да разкривате лични данни?</label><select class="input" data-choose="m5" data-id="fallback"><option value="">— Изберете план —</option>${shuffledChoices(fallback,'m5-fallback',d.session.code).map(([id,title])=>`<option value="${id}" ${ui.mission5.fallback===id?'selected':''}>${esc(title)}</option>`).join('')}</select><div class="divider"></div><div class="two"><div><label class="field">Обосновка №1 — защо първият избран подход е подходящ?</label><textarea id="m5-reason1" placeholder="Този подход изпълнява изискванията, защото...">${esc(ui.typed.m5a||'')}</textarea></div><div><label class="field">Обосновка №2 — как защитавате достъпа и екипната работа?</label><textarea id="m5-reason2" placeholder="Достъпът до съдържанието е..., което позволява...">${esc(ui.typed.m5b||'')}</textarea></div></div><label class="field" style="margin-top:14px">Сравнение: посочете привидно подходяща алтернатива и обяснете какво изискване не изпълнява.</label><textarea id="m5-tradeoff" placeholder="Бихме могли и..., но тогава..., затова...">${esc(ui.typed.m5tradeoff||'')}</textarea><div style="margin-top:17px">${btn('submit5','АКТИВИРАЙ ФИНАЛНИЯ КОД →','primary')}</div></div>`);
+}
 function finalCode(d){return playHeader(d)+`<div class="card emphasis mid" style="padding:35px"><span class="eyebrow">ОПЕРАЦИЯ: ФИНАЛНО ОТКЛЮЧВАНЕ</span><h2 style="font-size:34px;margin:12px 0">Петте цифри са получени.</h2><p class="subtle">Съберете цифрите от петте успешно изпълнени мисии в правилния ред.</p><div class="digits" style="justify-content:center;margin:22px 0">${d.team.digits.map(n=>`<span class="digit ${n===null?'secret':''}">${n===null?'?':n}</span>`).join('')}</div><div style="max-width:330px;margin:auto"><label class="field">Въведи финалния код</label><input class="input mono" style="font-size:29px;text-align:center;letter-spacing:9px" id="final-code" inputmode="numeric" maxlength="5" placeholder="•••••"><div style="margin-top:14px">${btn('unlock','ОТКЛЮЧИ КОНФЕРЕНЦИЯТА','gold full')}</div></div></div>`;}
 function success(d){return playHeader(d)+`<div class="victory"><div class="medal">✦</div><span class="eyebrow">СИСТЕМА 404 · ВЪЗСТАНОВЕНА</span><h1>МИСИЯТА Е ИЗПЪЛНЕНА!</h1><p class="lead" style="margin:0 auto 18px">Поздравления, отбор ${esc(d.team.name)}! Използвахте дигитални средства, за да спасите училищната онлайн конференция.</p><div class="stat" style="display:inline-block;min-width:170px"><div class="value">${d.team.score}</div><div class="name">Заслужени точки</div></div><div class="info" style="max-width:650px;margin:25px auto 0;text-align:left"><strong>Разговор в екипа:</strong> Кое беше най-трудно при съвместната работа? Кой инструмент бихте използвали отново и защо?</div></div>`;}
 function playPage(){const d=ui.playData;if(!d){app.innerHTML=shell('<div class="center loading"><div class="spinner"></div>Свързване с отбора...</div>');return;}let main='';if(d.team.finished_at)main=success(d);else if(d.session.status==='lobby')main=playHeader(d)+`<div class="card emphasis mid" style="padding:50px 20px"><span class="eyebrow">ВРЪЗКАТА С ЕКИПА Е УСТАНОВЕНА</span><h2 style="font-size:33px;margin:15px">Очаквайте учителя</h2><p class="subtle">Не затваряйте страницата. Играта ще започне автоматично, след като учителят натисне „Старт“.</p><div class="divider"></div><div class="flex" style="justify-content:center">${d.players.map(p=>`<span class="user-chip">${esc(p.nickname)}</span>`).join('')}</div></div>`;else if(d.session.status==='paused')main=playHeader(d)+`<div class="card mid"><h2>Играта е на пауза</h2><p class="subtle">Учителят скоро ще я продължи. Вашият напредък е запазен.</p></div>`;else if(d.session.status==='finished')main=playHeader(d)+`<div class="card mid"><h2>Времето изтече!</h2><p class="lead" style="margin:auto">Отбор ${esc(d.team.name)} завърши с ${d.team.score} точки и ${Math.min(d.team.current-1,5)} изпълнени мисии.</p></div>`;else if(d.team.current===6)main=finalCode(d);else main=[m1,m2,m3,m4,m5][d.team.current-1](d);
@@ -289,7 +372,7 @@ async function refresh(force=false){
 }
 async function post(path,data,mode='student'){let r=await api(path,data,mode);await refresh(mode!=='student');return r;}
 function getVal(id){return document.getElementById(id)?.value||'';}
-function captureTyped(){for(const [id,key] of [['m1-reason','m1'],['m1-contrast','m1contrast'],['m3-reason','m3'],['m4-reason','m4'],['m5-reason1','m5a'],['m5-reason2','m5b'],['nickname','nickname']]){const el=document.getElementById(id);if(el)ui.typed[key]=el.value;}}
+function captureTyped(){for(const [id,key] of [['m1-reason','m1'],['m1-contrast','m1contrast'],['m3-reason','m3'],['m4-reason','m4'],['m5-reason1','m5a'],['m5-reason2','m5b'],['m5-tradeoff','m5tradeoff'],['nickname','nickname']]){const el=document.getElementById(id);if(el)ui.typed[key]=el.value;}}
 async function click(act,b){
   if(act==='login'){const key=getVal('teacher-key').trim();await api('teacher/auth',{key});ui.teacherKey=key;localStorage.setItem(PREFIX+'teacher',key);await refresh(true);message('Добре дошли, учителю!');}
   else if(act==='logout'){ui.teacherKey='';localStorage.removeItem(PREFIX+'teacher');login();}
@@ -343,8 +426,8 @@ async function click(act,b){
     if(m===1)payload={mapping:ui.mission1,reason:ui.typed.m1||'',contrast:ui.typed.m1contrast||''};
     if(m===2)payload={};
     if(m===3)payload={slot:ui.mission3.slot,tool:ui.mission3.tool,backup:ui.mission3.backup,reason:ui.typed.m3||''};
-    if(m===4)payload={rights:ui.mission4,incident:ui.mission4.incident,risk:ui.typed.m4||''};
-    if(m===5)payload={choices:ui.mission5,fallback:ui.mission5.fallback,reason1:ui.typed.m5a||'',reason2:ui.typed.m5b||''};
+    if(m===4)payload={rights:ui.mission4,incident:ui.mission4.incident,recovery:ui.mission4.recovery,risk:ui.typed.m4||''};
+    if(m===5)payload={choices:ui.mission5,fallback:ui.mission5.fallback,reason1:ui.typed.m5a||'',reason2:ui.typed.m5b||'',tradeoff:ui.typed.m5tradeoff||''};
     const r=await api('student/submit',{mission:m,payload},'student');
     if(r.ok){audio();ui.typed={};await refresh(true);window.scrollTo({top:0});message(`МИСИЯ ${m} ИЗПЪЛНЕНА! +${r.earned} точки · Цифра за кода: ${r.digit}`);}else{audio(false);message((r.errors||[]).join(' '),true);}
   }

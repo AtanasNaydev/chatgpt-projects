@@ -6,7 +6,8 @@ const ui = {
   teacherKey: localStorage.getItem(PREFIX+'teacher')||'', token: localStorage.getItem(PREFIX+'player')||'',
   code: new URLSearchParams(location.search).get('code')||'', joined: null, selectedTeam:'',
   mission1:{}, mission3:{}, mission4:{}, mission5:{}, typed:{},
-  audio:localStorage.getItem(PREFIX+'audio')!=='off', teacherData:null, playData:null, lan:'', loading:false, creating:false
+  audio:localStorage.getItem(PREFIX+'audio')!=='off', teacherData:null, playData:null, lan:'', loading:false, creating:false,
+  teacherViewStamp:null, playViewStamp:null, healthChecked:false
 };
 const sceneNames=['Изчезналият файл','Синхронизирай екипа','Невъзможната среща','Опасната връзка','Финално отключване'];
 const missionDescriptions=[
@@ -65,7 +66,9 @@ async function api(path,body,mode='none'){
 }
 function login(){app.innerHTML=shell(`<section class="mission-head"><span class="eyebrow">СЕКТОР: УПРАВЛЕНИЕ</span><h1>Учителски контролен център</h1><p>Въведете личния учителски код. При онлайн хостинг кодът се задава в настройките на Render и не трябва да се споделя с учениците.</p></section><div class="card" style="max-width:560px"><div class="stack"><div><label class="field" for="teacher-key">Секретен учителски код</label><input id="teacher-key" class="input mono" type="password" placeholder="Учителски секретен код" autocomplete="off"></div>${btn('login','ОТВОРИ КОНТРОЛНИЯ ЦЕНТЪР','primary')}<p class="help">Кодът не е кодът за присъединяване на учениците. Не го показвайте на дъската.</p></div></div>`);}
 function teacherSetUp(){const names=['АЛФА','БЕТА','ГАМА','ДЕЛТА','ОМЕГА','СИГМА','ТЕТА','ЗЕТА'];app.innerHTML=shell(`<section class="mission-head"><span class="eyebrow">УПРАВЛЕНИЕ НА СЕСИЯ</span><h1>Създайте нова мисия</h1><p>Изберете броя на отборите. Всяко дете се присъединява само с прякор.</p></section><div class="card" style="max-width:660px"><div class="stack"><div><label class="field">Брой отбори</label><select class="input" id="team-count">${[3,4,5,6,7,8].map(x=>`<option value="${x}" ${x===4?'selected':''}>${x} отбора</option>`).join('')}</select></div><div class="info">Имена по подразбиране: ${names.join(', ')}. Можете да ги преименувате в учителския панел преди старта.</div><label class="flex"><input type="checkbox" id="test-mode" style="accent-color:#5bedeb">Тестов режим — играта започва веднага за предварителна проверка</label>${btn('create','СЪЗДАЙ НОВА СЕСИЯ','primary')}<p class="help">При нова сесия предишните отбори и резултати се заменят. При нужда запазете резултатите, преди да създадете нова.</p></div></div>`,btn('logout','Изход','small ghost'));}
-function teacherPage(){const s=ui.teacherData?.session;if(!s){teacherSetUp();return;}const teams=[...s.teams].sort((a,b)=>b.score-a.score||(a.finished_at||Infinity)-(b.finished_at||Infinity));const count=teams.reduce((a,t)=>a+t.players.length,0);
+function teacherPage(){const s=ui.teacherData?.session;if(!s){teacherSetUp();return;}
+const expanded=new Set([...app.querySelectorAll('details[data-team-details][open]')].map(el=>el.dataset.teamDetails));
+const teams=[...s.teams].sort((a,b)=>b.score-a.score||(a.finished_at||Infinity)-(b.finished_at||Infinity));const count=teams.reduce((a,t)=>a+t.players.length,0);
 const base=ui.lan?`http://${ui.lan}:${location.port||'8765'}`:location.origin;
 const joinLink=`${base}/join?code=${s.code}`;
 const actions=s.status==='lobby'?btn('start','▶ СТАРТ','primary'):s.status==='running'?btn('pause','Ⅱ ПАУЗА','gold'):s.status==='paused'?btn('resume','▶ ПРОДЪЛЖИ','primary'):'';
@@ -74,9 +77,10 @@ app.innerHTML=shell(`<section class="mission-head"><span class="eyebrow">КОН�
 <div class="statrow"><div class="stat"><div class="name">Код за ученици</div><div class="value" style="color:var(--amber);letter-spacing:2px">${s.code}</div></div><div class="stat"><div class="name">Оставащо време</div><div class="value">${fmt(s.duration-s.elapsed)}</div></div><div class="stat"><div class="name">Участници</div><div class="value">${count}</div></div><div class="stat"><div class="name">Статус</div><div class="value" style="font-size:23px">${statusText(s.status)}</div></div></div>
 <div class="spread" style="margin-top:18px"><div class="card emphasis"><span class="eyebrow">КОД ЗА ПРИСЪЕДИНЯВАНЕ</span><h3 class="card-title">Дайте адреса на учениците</h3><span class="session-link">${esc(joinLink)}</span><div class="flex" style="margin-top:12px">${btn('copy-link','⧉ КОПИРАЙ ВРЪЗКАТА','ghost small')}${btn('copy-code','⧉ КОПИРАЙ КОДА','ghost small')}</div><p class="help">Ако учениците са в една локална мрежа, отварят показания адрес и избират отбор. Не споделяйте секретния код на учителя.</p></div><div class="card"><span class="eyebrow">КОНТРОЛ НА ЧАСА</span><div class="clock-large">${fmt(s.duration-s.elapsed)}</div><div class="flex" style="justify-content:center;margin-top:13px">${actions}${extra}</div><div class="flex" style="justify-content:center;margin-top:14px">${btn('reset','↻ НУЛИРАЙ','ghost small')}${btn('new-session','＋ НОВА СЕСИЯ','ghost small')}</div></div></div>
 <section class="section"><h2>Класиране и напредък</h2></section><div class="card"><div style="overflow:auto"><table class="team-table"><thead><tr><th>#</th><th>Отбор</th><th>Членове</th><th>Мисия</th><th>Напредък</th><th>Точки</th><th>Действия</th></tr></thead><tbody>${teams.map((t,i)=>`<tr><td><div class="rank">${i+1}</div></td><td><strong>${esc(t.name)}</strong></td><td>${t.players.map(p=>`<span class="user-chip" title="${p.online?'Онлайн':'Неактивен'}">${p.online?'<span class="signal"></span>':''}${esc(p.nickname)}</span>`).join(' ')||'<span class="subtle">—</span>'}</td><td>${t.finished_at?'✓ Финал':t.current>5?'Код':t.current+'/5'}</td><td style="min-width:135px"><div class="progress"><i style="width:${Math.min(100,(t.current-1)*20)}%"></i></div></td><td><strong style="color:var(--cyan)">${t.score}</strong></td><td>${s.status==='lobby'?`<button class="btn small ghost" data-act="rename" data-team="${t.id}">Име</button>`:''} ${t.current<=5&&s.status!=='finished'?`<button class="btn small ghost" data-act="skip" data-team="${t.id}">Пропусни</button>`:''}</td></tr>`).join('')}</tbody></table></div><p class="help">Завършена мисия носи до 100 т., грешките и подсказките намаляват точките, а екипната работа в Мисия 2 дава бонус.</p></div>
-<section class="section"><h2>Преглед на отговорите</h2></section><div class="card"><p class="subtle" style="margin-bottom:12px">Отворете отбора, за да видите обосновките и резултатите. Преценете свободните отговори педагогически.</p>${teams.map(t=>`<details style="border-top:1px solid #38566d;padding:12px 0"><summary style="cursor:pointer;font-weight:bold">${esc(t.name)} · ${t.score} т. · ${Object.keys(t.answers).length}/5 мисии</summary><div class="stack" style="margin-top:12px">${[1,2,3,4,5].map(m=>{const a=t.answers[String(m)];return `<div class="unit"><strong>Мисия ${m}: ${sceneNames[m-1]}</strong>${a?`<p class="subtle">${a.skipped?'Пропусната от учителя':a.points+' точки'}</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;color:#9ed0df;font-size:12px">${esc(JSON.stringify(a.evidence,null,2))}</pre>`:'<p class="subtle">Не е изпълнена</p>'}</div>`}).join('')}</div></details>`).join('')}</div>
+<section class="section"><h2>Преглед на отговорите</h2></section><div class="card"><p class="subtle" style="margin-bottom:12px">Отворете отбора, за да видите обосновките и резултатите. Преценете свободните отговори педагогически.</p>${teams.map(t=>`<details data-team-details="${esc(t.id)}" style="border-top:1px solid #38566d;padding:12px 0"><summary style="cursor:pointer;font-weight:bold">${esc(t.name)} · ${t.score} т. · ${Object.keys(t.answers).length}/5 мисии</summary><div class="stack" style="margin-top:12px">${[1,2,3,4,5].map(m=>{const a=t.answers[String(m)];return `<div class="unit"><strong>Мисия ${m}: ${sceneNames[m-1]}</strong>${a?`<p class="subtle">${a.skipped?'Пропусната от учителя':a.points+' точки'}</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere;color:#9ed0df;font-size:12px">${esc(JSON.stringify(a.evidence,null,2))}</pre>`:'<p class="subtle">Не е изпълнена</p>'}</div>`}).join('')}</div></details>`).join('')}</div>
 <div class="foot-note">Сигурност: секретният код е необходим за този екран. Не го споделяйте с учениците. Играта е предназначена за локална училищна мрежа.</div>`,btn('logout','Изход','small ghost'));
 ui.joinLink=joinLink;
+app.querySelectorAll('details[data-team-details]').forEach(el=>{if(expanded.has(el.dataset.teamDetails))el.open=true;});
 }
 function joinPage(){const data=ui.joined;app.innerHTML=shell(`<section class="mission-head"><span class="eyebrow">ДОСТЪП ДО МИСИЯТА</span><h1>Присъедини се към екипа</h1><p>Работете заедно. Всеки участник трябва да има собствен компютър и да избере същия отбор.</p></section><div class="card" style="max-width:730px"><div class="stack"><div><label class="field">Шестсимволен код от учителя</label><div class="flex"><input id="game-code" class="input mono" maxlength="6" placeholder="напр. A7K3PN" value="${esc(ui.code)}" style="flex:1;letter-spacing:2px;text-transform:uppercase">${btn('check-code','ПРОВЕРИ КОДА','primary')}</div></div>${data?`<div class="divider"></div><span class="eyebrow">ИЗБЕРИ ОТБОР</span><div class="two">${data.teams.map(t=>`<button class="select-team ${ui.selectedTeam===t.id?'active':''}" data-act="choose-team" data-team="${t.id}" ${t.full?'disabled':''}><strong>${esc(t.name)}</strong><small>${t.full?'Отборът е пълен':`${t.count}/4 участници`}</small></button>`).join('')}</div><div><label class="field">Твоят прякор (без фамилия)</label><input class="input" id="nickname" placeholder="Например: Агент_7" maxlength="22" value="${esc(ui.typed.nickname||'')}"></div>${btn('join','ВЛЕЗ В МИСИЯТА','gold',ui.selectedTeam?'':'disabled')}<p class="help">Ако играта вече е стартирала, ще се включиш в текущия напредък на избрания отбор.</p>`:''}</div></div>`,ui.token?`<a href="/play" data-nav="/play" class="btn small ghost">Към моята игра</a>`:'');}
 function playHeader(d){return `<section class="mission-head"><div class="flex between"><span class="eyebrow">ОТБОР ${esc(d.team.name)} · АГЕНТ ${esc(d.me.nickname)}</span><span class="tag ${d.session.status==='running'?'green':'amber'}">${statusText(d.session.status)}</span></div><h1>МИСИЯ 404 <span style="color:var(--cyan)">/ ОПЕРАЦИЯ</span></h1><div class="flex between" style="margin-top:18px"><div>${progress(d.team.current)}</div><div class="timer">◷ ${fmt(d.session.duration-d.session.elapsed)}</div></div><div class="flex between" style="margin-top:16px"><span class="tag">Точки: <strong>${d.team.score}</strong></span><span class="tag">Екип: ${d.players.length}/4 участници</span></div></section>`;}
@@ -90,19 +94,84 @@ function finalCode(d){return playHeader(d)+`<div class="card emphasis mid" style
 function success(d){return playHeader(d)+`<div class="victory"><div class="medal">✦</div><span class="eyebrow">СИСТЕМА 404 · ВЪЗСТАНОВЕНА</span><h1>МИСИЯТА Е ИЗПЪЛНЕНА!</h1><p class="lead" style="margin:0 auto 18px">Поздравления, отбор ${esc(d.team.name)}! Използвахте дигитални средства, за да спасите училищната онлайн конференция.</p><div class="stat" style="display:inline-block;min-width:170px"><div class="value">${d.team.score}</div><div class="name">Заслужени точки</div></div><div class="info" style="max-width:650px;margin:25px auto 0;text-align:left"><strong>Разговор в екипа:</strong> Кое беше най-трудно при съвместната работа? Кой инструмент бихте използвали отново и защо?</div></div>`;}
 function playPage(){const d=ui.playData;if(!d){app.innerHTML=shell('<div class="center loading"><div class="spinner"></div>Свързване с отбора...</div>');return;}let main='';if(d.team.finished_at)main=success(d);else if(d.session.status==='lobby')main=playHeader(d)+`<div class="card emphasis mid" style="padding:50px 20px"><span class="eyebrow">ВРЪЗКАТА С ЕКИПА Е УСТАНОВЕНА</span><h2 style="font-size:33px;margin:15px">Очаквайте учителя</h2><p class="subtle">Не затваряйте страницата. Играта ще започне автоматично, след като учителят натисне „Старт“.</p><div class="divider"></div><div class="flex" style="justify-content:center">${d.players.map(p=>`<span class="user-chip">${esc(p.nickname)}</span>`).join('')}</div></div>`;else if(d.session.status==='paused')main=playHeader(d)+`<div class="card mid"><h2>Играта е на пауза</h2><p class="subtle">Учителят скоро ще я продължи. Вашият напредък е запазен.</p></div>`;else if(d.session.status==='finished')main=playHeader(d)+`<div class="card mid"><h2>Времето изтече!</h2><p class="lead" style="margin:auto">Отбор ${esc(d.team.name)} завърши с ${d.team.score} точки и ${Math.min(d.team.current-1,5)} изпълнени мисии.</p></div>`;else if(d.team.current===6)main=finalCode(d);else main=[m1,m2,m3,m4,m5][d.team.current-1](d);
 app.innerHTML=shell(main,`${btn('toggle-audio',ui.audio?'♪ Звук: вкл.':'♪ Звук: изкл.','small ghost')}${btn('leave','Изход','small ghost')}`);}
+// Sync every 2.5 seconds without rebuilding the page when only the timer changes.
+function teacherViewSignature(session){
+  if(!session)return 'no-session';
+  return JSON.stringify({
+    code:session.code,status:session.status,test_mode:session.test_mode,
+    teams:session.teams.map(t=>({id:t.id,name:t.name,players:t.players,
+      current:t.current,score:t.score,answers:t.answers,finished_at:t.finished_at}))
+  });
+}
+function playViewSignature(d){
+  return JSON.stringify({
+    session:{code:d.session.code,status:d.session.status,test_mode:d.session.test_mode},
+    team:d.team,players:d.players,m2:d.m2,hint_texts:d.hint_texts
+  });
+}
+function syncClocks(){
+  if(location.pathname==='/teacher'){
+    const s=ui.teacherData?.session;if(!s)return;
+    const time=fmt(s.duration-s.elapsed);
+    const stat=app.querySelector('.statrow .stat:nth-child(2) .value');
+    const large=app.querySelector('.clock-large');
+    if(stat&&stat.textContent!==time)stat.textContent=time;
+    if(large&&large.textContent!==time)large.textContent=time;
+  }else if(location.pathname==='/play'){
+    const s=ui.playData?.session;if(!s)return;
+    const time='◷ '+fmt(s.duration-s.elapsed);
+    const timer=app.querySelector('.timer');
+    if(timer&&timer.textContent!==time)timer.textContent=time;
+  }
+}
 async function refresh(force=false){
   const path=location.pathname;
   if(path==='/teacher'){
     if(!ui.teacherKey){login();return;}
-    if(ui.creating){return;}
-    try{const data=await api('teacher/state',undefined,'teacher');ui.teacherData=data;try{const h=await api('health');ui.lan=h.lan||'';}catch{};if(force||!document.activeElement?.matches('input,textarea,select'))teacherPage();}catch(e){ui.teacherKey='';localStorage.removeItem(PREFIX+'teacher');login();message(e.message,true);}return;
+    if(ui.creating)return;
+    try{
+      const data=await api('teacher/state',undefined,'teacher');
+      ui.teacherData=data;
+      if(!ui.healthChecked){
+        ui.healthChecked=true;
+        try{const h=await api('health');ui.lan=h.lan||'';}catch{}
+      }
+      const stamp=teacherViewSignature(data.session);
+      const editing=document.activeElement?.matches('input,textarea,select');
+      if(force||(!editing&&ui.teacherViewStamp!==stamp)){
+        teacherPage();
+        ui.teacherViewStamp=stamp;
+      }
+      syncClocks();
+    }catch(e){
+      if(e.message.includes('учителски код')||e.message.includes('Учителски код')){
+        ui.teacherKey='';localStorage.removeItem(PREFIX+'teacher');login();
+      }
+      message(e.message,true);
+    }
+    return;
   }
   if(path==='/join'){joinPage();return;}
   if(path==='/play'){
     if(!ui.token){go('/join');return;}
-    try{const d=await api('student/state',undefined,'student');let changed=ui.playData&&d.team.current!==ui.playData.team.current;ui.playData=d;
-      if(force||changed||!document.activeElement?.matches('input,textarea,select'))playPage();
-    }catch(e){if(e.message.includes('Не сте присъединени')||e.message.includes('Не е намерен')){ui.token='';localStorage.removeItem(PREFIX+'player');go('/join')}else message(e.message,true);}
+    try{
+      const previous=ui.playData;
+      const d=await api('student/state',undefined,'student');
+      const changed=previous&&d.team.current!==previous.team.current;
+      ui.playData=d;
+      const stamp=playViewSignature(d);
+      const editing=document.activeElement?.matches('input,textarea,select');
+      const statusChanged=previous&&d.session.status!==previous.session.status;
+      if(force||changed||statusChanged||(!editing&&ui.playViewStamp!==stamp)){
+        playPage();
+        ui.playViewStamp=stamp;
+      }
+      syncClocks();
+    }catch(e){
+      if(e.message.includes('Не сте присъединени')||e.message.includes('Не е намерен')){
+        ui.token='';localStorage.removeItem(PREFIX+'player');go('/join');
+      }else message(e.message,true);
+    }
     return;
   }
   renderLanding();

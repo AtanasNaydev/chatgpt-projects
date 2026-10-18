@@ -39,8 +39,8 @@ def run():
             def state(i=0):return request('student/state',role='student',token=students[i])
             assert state()['team']['current']==1 and state()['m2']['clues']==[]
             bad=request('student/submit',{'mission':1,'payload':{'mapping':{'collab':'ideas'},'reason':'Някакъв текст за екипа'}},'student',students[0]);assert not bad['ok']
-            good=request('student/submit',{'mission':1,'payload':{'mapping':{'archive':'storage','review':'docs','date':'schedule','meeting':'webinar','sharing':'storage','brainstorm':'ideas','quick':'chat','collab':'docs'},'reason':'Общите документи позволяват едновременна работа на екипа и обратна връзка по отделни пасажи.','contrast':'Не бих използвал чат за редакция на документи, защото там не се поддържат версии и коментари по отделните пасажи.'}},'student',students[0]);assert good['ok'] and len(good['digit'])==1
-            assert good['earned']==90
+            good=request('student/submit',{'mission':1,'payload':{'mapping':{'archive':'storage','review':'docs','date':'schedule','meeting':'webinar','sharing':'storage','brainstorm':'ideas','quick':'chat','collab':'docs'},'reason':'Общите документи позволяват едновременна работа на екипа и обратна връзка по отделни пасажи.','contrast':'Не бих използвал чат за редакция на документи, защото там не се поддържат версии и коментари по отделните пасажи.'}},'student',students[0]);assert good['ok'] and len(good['digit'])==1 and good['pending_review']
+            assert good['earned']==55
             # No repeated or leaked clues with 3 players in the first team.
             shares=[state(i)['m2']['clues'] for i in range(3)]
             assert [len(v) for v in shares]==[2,2,1]
@@ -62,22 +62,41 @@ def run():
                 assert sum(map(len,parts))==5 and len(set(c for clues in parts for c in clues))==5
                 assert solo_view(solo)['team_size']==num
             assert len(solo_view(solo)['clues'])==2
+            members=request('teacher/state',role='teacher')['session']['teams'][1]['players']
+            victim=members[1]['id']
+            assert request('teacher/remove',{'team_id':second_team,'player_id':victim},'teacher')['ok']
+            remaining=[solo]+extra[1:]
+            # Removed device token is revoked; remaining students receive all clues.
+            try:
+                solo_view(extra[0])
+                raise AssertionError('Removed token should fail')
+            except Exception as exc:
+                assert '401' in str(exc)
+            assert sum(len(solo_view(tok)['clues']) for tok in remaining)==5
+            recovered=request('student/join',{'code':code,'team_id':second_team,'nickname':'Нов_агент'})['token']
+            assert sum(len(solo_view(tok)['clues']) for tok in remaining+[recovered])==5
             fields={'title':'Безопасно онлайн','audience':'Ученици от 10. клас','program':'Лични данни; фишинг; цифров отпечатък','tools':'Google Meet, Google Docs и Doodle','roles':'Водещ, модератор и техническа поддръжка','fallback':'Ако видеосрещата прекъсне, ще изпратим материалите чрез ограничен линк и ще съберем въпросите писмено.'}
             for idx,(k,v) in enumerate(fields.items()):
                 request('student/edit',{'field':k,'value':v},'student',students[idx%3])
             request('student/comment',{'action':'add','body':'Да включим и пример за защита срещу фишинг.'},'student',students[1]);comment=state(0)['m2']['comments'][0]['id']
-            request('student/comment',{'action':'apply','id':comment},'student',students[2]); request('student/comment',{'action':'add','body':'Да публикуваме предварително и програмата за участниците.'},'student',students[2]); comment2=state(0)['m2']['comments'][1]['id'];request('student/comment',{'action':'apply','id':comment2},'student',students[0]); result=request('student/submit',{'mission':2,'payload':{}},'student',students[0]);assert result['ok'] and result['bonus']==10
+            request('student/comment',{'action':'apply','id':comment},'student',students[2]); request('student/comment',{'action':'add','body':'Да публикуваме предварително и програмата за участниците.'},'student',students[2]); comment2=state(0)['m2']['comments'][1]['id'];request('student/comment',{'action':'apply','id':comment2},'student',students[0]); result=request('student/submit',{'mission':2,'payload':{}},'student',students[0]);assert result['ok'] and result['earned']==60
             result=request('student/submit',{'mission':3,'payload':{'slot':'tue15','tool':'Doodle','backup':'record','reason':'Doodle помага за събиране на възможните часове на всеки участник и предотвратява насрочване на среща, на която някой не може да присъства.'}},'student',students[0]);assert result['ok']
             result=request('student/submit',{'mission':4,'payload':{'rights':{'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none','link':'restricted','cowriter':'edit','press':'view','expert':'comment'},'incident':'revoke','recovery':'restore','risk':'Ако всеки с линка има право да редактира, непознати могат да изтрият важни материали, затова премахваме публичните права и проверяваме историята на редакциите.'}},'student',students[0]);assert result['ok']
             result=request('student/submit',{'mission':5,'payload':{'choices':{'webinar':'moderated','docs':'restricted-edit','files':'only-pdf','time':'poll','ideas':'padlet-vote','feedback':'anonymous-form'},'fallback':'async','reason1':'Zoom позволява онлайн конференция с видео, звук и въпроси, а модераторът може да координира участниците.','reason2':'Ограниченият достъп позволява обща работа и защитава съдържанието от неупълномощени лица и случайни редакции.', 'tradeoff':'Публичният линк би улеснил достъпа на гостите, но не изпълнява изискването за личните им данни.'}},'student',students[0]);assert result['ok']
             done=state();assert done['team']['current']==6 and all(x is not None for x in done['team']['digits'])
             full=''.join(done['team']['digits']); assert request('student/unlock',{'code':full},'student',students[0])['ok']
             final=state();assert final['team']['finished_at'] is not None
-            dash=request('teacher/state',role='teacher')['session']; assert dash['teams'][0]['score']==500
+            dash=request('teacher/state',role='teacher')['session']; assert dash['teams'][0]['score']==295
+            for mission in range(1,6):
+                graded=request('teacher/grade',{'team_id':team,'mission':mission,'review_points':40},'teacher')
+                assert graded['ok']
+            dash=request('teacher/state',role='teacher')['session']
+            assert dash['teams'][0]['score']==495 and all(
+                dash['teams'][0]['answers'][str(m)]['reviewed'] for m in range(1,6))
             request('teacher/action',{'action':'pause'},'teacher');assert request('teacher/state',role='teacher')['session']['status']=='paused'
             request('teacher/action',{'action':'resume'},'teacher');assert request('teacher/state',role='teacher')['session']['status']=='running'
             request('teacher/action',{'action':'finish'},'teacher'); assert state()['session']['status']=='finished'
-            print('OK: 40-minute class, 1–4 member clue distribution, 5 revised missions, shared document, final code and teacher controls')
+            print('OK: 40-minute classroom, fair rubric, clue redistribution and lost-device removal, five missions and final code')
         finally:
             proc.terminate();proc.wait(timeout=5)
 if __name__=='__main__':run()

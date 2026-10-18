@@ -1,0 +1,23 @@
+name: Classroom checks
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: node --check static/app.js
+      - name: Check Python syntax
+        run: python -m py_compile server.py
+      - name: Full five-mission integration test
+        run: python tests/test_classroom.py

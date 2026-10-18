@@ -64,15 +64,13 @@ DATA = load_data()
 TOOLS = {'docs': 'Google Docs / Word Online', 'ideas': 'Padlet', 'schedule': 'Doodle',
          'webinar': 'Google Meet / Teams / Zoom', 'storage': 'Google Drive / OneDrive',
          'chat': 'Екипен чат / Teams канал'}
-CORRECT_M1 = {'archive':'storage','review':'docs','date':'schedule','meeting':'webinar',
-              'sharing':'storage','brainstorm':'ideas','quick':'chat','collab':'docs'}
+CORRECT_M1 = {'archive':'storage','review':'docs','date':'schedule','meeting':'webinar','brainstorm':'ideas','quick':'chat'}
 CORRECT_M4 = {
     'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none',
-    'link':'restricted','cowriter':'edit','press':'view','expert':'comment'
+    'link':'restricted','expert':'comment'
 }
 CORRECT_M5 = {
-    'webinar':'moderated', 'docs':'restricted-edit', 'files':'only-pdf',
-    'time':'poll', 'ideas':'padlet-vote', 'feedback':'anonymous-form'
+    'webinar':'moderated', 'docs':'restricted-edit', 'files':'only-pdf', 'feedback':'anonymous-form'
 }
 M3_COMMON_SLOT = 'tue15'
 TEAM_NAMES = ['АЛФА','БЕТА','ГАМА','ДЕЛТА','ОМЕГА','СИГМА','ТЕТА','ЗЕТА']
@@ -153,7 +151,7 @@ def new_session(team_names, test_mode=False):
 def teacher_view(s):
     return {'code':s['code'], 'status':session_status(s), 'test_mode':s['test_mode'],
        'elapsed':sec(s), 'duration':s['duration'], 'teams':[
-           {'id':t['id'], 'name':t['name'], 'players':[{'nickname':p['nickname'], 'online':now()-p.get('last_seen',0)<20} for p in t['players']],
+           {'id':t['id'], 'name':t['name'], 'players':[{'id':p['id'],'nickname':p['nickname'], 'online':now()-p.get('last_seen',0)<20} for p in t['players']],
             'current':t['current'], 'score':t['score'], 'answers':t['answers'], 'attempts':t['attempts'],
             'hints':t['hints'], 'finished_at':t['finished_at'], 'comments':t['comments'],
             'doc':{k:v['value'] for k,v in t['doc'].items()}}
@@ -181,16 +179,16 @@ def student_view(s,t,p):
               'doc':t['doc'], 'comments':t['comments']},
         'hint_texts':{str(i):HINTS[i] for i in t['hints']}}
 
-def score(t,m,bonus=0):
+def score(t,m):
+    # Up to 60 automatic points for choices; up to 40 for teacher-assessed reasoning.
     missed=t['attempts'].get(str(m),0)
-    return max(70,100-10*missed)-(10 if m in t['hints'] else 0)+bonus
+    return max(35,60-5*min(missed,4)-(5 if m in t['hints'] else 0))
 
 def submit(t,s,p,mission,payload):
     ensure_running(s,t,mission)
     if not isinstance(payload,dict): fail('Невалидни данни.')
     errors=[]
     evidence={}
-    bonus=0
     if mission==1:
         result=payload.get('mapping',{})
         if not isinstance(result,dict): result={}
@@ -198,29 +196,35 @@ def submit(t,s,p,mission,payload):
         if wrong: errors.append('Има '+str(len(wrong))+' неправилни съответствия. Прегледайте избраните инструменти.')
         reason=str(payload.get('reason','')).strip()
         contrast=str(payload.get('contrast','')).strip()
-        if len(reason)<35: errors.append('Обяснете избора на поне две технологии (минимум 35 знака).')
-        if len(contrast)<35: errors.append('Обяснете защо друга привидно подходяща технология НЕ е подходяща (минимум 35 знака).')
+        if len(reason)<15: errors.append('Добавете кратка аргументация.')
+        if len(contrast)<15: errors.append('Сравнете избора с алтернатива.')
         evidence={'mapping':result,'reason':reason[:500],'contrast':contrast[:500]}
     elif mission==2:
         doc={k:v['value'].strip() for k,v in t['doc'].items()}
         for k in ('title','audience','program','tools','roles','fallback'):
             if len(doc.get(k,''))<6: errors.append('Попълнете всичките шест полета на общия документ.') ; break
-        if 'безопасно' not in doc.get('title','').lower():errors.append('В заглавието липсва темата на събитието от уликата.')
-        if '10' not in doc.get('audience',''):errors.append('Уточнете за кой клас е събитието.')
+        title=doc.get('title','').lower()
+        if not any(v in title for v in ('безопас','сигурн','защит')) or not any(v in title for v in ('онлайн','интернет','мреж')):
+            errors.append('В заглавието посочете темата за онлайн безопасност.')
+        if not any(v in doc.get('audience','').lower() for v in ('10','десети','десетоклас')):
+            errors.append('Уточнете, че събитието е за 10. клас.')
         program=doc.get('program','').lower()
-        if not all(x in program for x in ('лични данни','фишинг','цифров отпечатък')):
-            errors.append('Програмата трябва да включва и трите теми от уликите.')
-        if len(doc.get('fallback',''))<35: errors.append('Опишете реалистичен резервен план при проблем с видеосрещата (поне 35 знака).')
-        members=len(t['players']); contributors=set(e['player_id'] for e in t['edits'])
-        if members>=2 and len(contributors)<members: errors.append('Всеки ученик от отбора трябва да редактира поне едно поле.')
-        if sum(bool(c['applied']) for c in t['comments'])<2: errors.append('Направете поне два коментара и отбележете, че предложенията са приложени.')
-        if len(contributors)>=members and members>=2: bonus=10
+        aliases=(('лични данни','персонални данни','поверителност'),
+                 ('фишинг','измамни съобщения','онлайн измами'),
+                 ('цифров отпечатък','дигитален отпечатък','цифрова следа','дигитална следа'))
+        if not all(any(a in program for a in group) for group in aliases):
+            errors.append('Включете и трите теми от уликите (допускат се синоними).')
+        if len(doc.get('fallback',''))<15: errors.append('Опишете кратък резервен план.')
+        members=len(t['players']); member_ids={m['id'] for m in t['players']}
+        contributors={e['player_id'] for e in t['edits'] if e['player_id'] in member_ids}
+        if len(contributors)<members: errors.append('Всеки активен ученик трябва да запише поне една редакция.')
+        if not any(c['applied'] for c in t['comments']): errors.append('Добавете и приложете едно предложение за подобрение.')
         evidence={'doc':doc,'participants':len(contributors),'comments':t['comments']}
     elif mission==3:
         if payload.get('slot')!=M3_COMMON_SLOT: errors.append('Това не е общият свободен час на всички петима участници.')
         if payload.get('tool')!='Doodle': errors.append('Изберете инструмент, предназначен за съгласуване на дата и час.')
         if payload.get('backup')!='record': errors.append('Планирайте как отсъстващ участник ще получи материалите и ще зададе въпрос.')
-        if len(str(payload.get('reason','')).strip())<35:errors.append('Обяснете как екипът координира участниците и защо този инструмент е подходящ (поне 35 знака).')
+        if len(str(payload.get('reason','')).strip())<15:errors.append('Добавете кратко обяснение.')
         evidence={'slot':payload.get('slot'),'tool':payload.get('tool'),'backup':payload.get('backup'),'reason':str(payload.get('reason',''))[:350]}
     elif mission==4:
         rights=payload.get('rights',{})
@@ -231,8 +235,7 @@ def submit(t,s,p,mission,payload):
             errors.append('Прегледайте първата реакция при компрометирано споделяне.')
         if payload.get('recovery')!='restore':
             errors.append('Проверете как ще установите и възстановите достоверна версия на документа.')
-        if len(str(payload.get('risk','')).strip())<55:
-            errors.append('Опишете риска, първата реакция и превенцията с поне 55 знака.')
+        if len(str(payload.get('risk','')).strip())<15:errors.append('Опишете риска и реакцията.')
         evidence={'rights':rights,'incident':payload.get('incident'),
                   'recovery':payload.get('recovery'),'risk':str(payload.get('risk',''))[:550]}
     elif mission==5:
@@ -244,21 +247,21 @@ def submit(t,s,p,mission,payload):
         r1=str(payload.get('reason1','')).strip()
         r2=str(payload.get('reason2','')).strip()
         contrast=str(payload.get('tradeoff','')).strip()
-        if len(r1)<45 or len(r2)<45:
-            errors.append('Дайте две конкретни обосновки (всяка поне 45 знака).')
-        if len(contrast)<45:
-            errors.append('Сравнете избраното решение с правдоподобна, но по-неподходяща алтернатива (поне 45 знака).')
+        if len(r1)<15 or len(r2)<15:errors.append('Добавете две кратки обосновки.')
+        if len(contrast)<15:errors.append('Сравнете с алтернативно решение.')
         evidence={'choices':choices,'fallback':payload.get('fallback'),
                   'reason1':r1[:500],'reason2':r2[:500],'tradeoff':contrast[:500]}
     else:fail('Несъществуваща мисия.')
     if errors:
         t['attempts'][str(mission)] = t['attempts'].get(str(mission),0)+1
         return {'ok':False,'errors':errors,'attempts':t['attempts'][str(mission)]}
-    earned=score(t,mission,bonus)
-    t['answers'][str(mission)]={'points':earned,'evidence':evidence,'at':now(),'skipped':False}
+    earned=score(t,mission)
+    t['answers'][str(mission)]={'points':earned,'auto_points':earned,'review_points':0,
+        'reviewed':False,'evidence':evidence,'at':now(),'skipped':False}
     t['score']=sum(v['points'] for v in t['answers'].values())
     t['current']=mission+1
-    return {'ok':True,'earned':earned,'bonus':bonus,'digit':t['digits'][mission-1], 'message':'Мисията е изпълнена!'}
+    return {'ok':True,'earned':earned,'pending_review':True,'digit':t['digits'][mission-1],
+        'message':'Мисията е изпълнена! Остава учителска проверка на обосновката.'}
 
 class Handler(BaseHTTPRequestHandler):
     server_version='Misiya404/1.0'
@@ -292,7 +295,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif action=='reset':
                     for t in s['teams']:
                         t.update(new_team(t['name'],0));t['players']=[]
-                    s['elapsed_before']=0;s['started_at']=None;s['status']='lobby';s['test_mode']=False
+                    s['elapsed_before']=0;s['started_at']=None;s['status']='lobby';s['test_mode']=False;s['duration']=2400
                 else:fail('Действието е недостъпно при текущото състояние.')
                 save();return {'ok':True,'session':teacher_view(s)}
             if path=='/api/teacher/rename' and method=='POST':

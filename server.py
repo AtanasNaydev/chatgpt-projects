@@ -62,8 +62,10 @@ def load_data():
 DATA = load_data()
 
 TOOLS = {'docs': 'Google Docs / Word Online', 'ideas': 'Padlet', 'schedule': 'Doodle',
-         'webinar': 'Google Meet / Teams / Zoom', 'storage': 'Google Drive / OneDrive'}
-CORRECT_M1 = {'collab':'docs','brainstorm':'ideas','date':'schedule','meeting':'webinar','archive':'storage'}
+         'webinar': 'Google Meet / Teams / Zoom', 'storage': 'Google Drive / OneDrive',
+         'chat': 'Екипен чат / Teams канал'}
+CORRECT_M1 = {'archive':'storage','review':'docs','date':'schedule','meeting':'webinar',
+              'sharing':'storage','brainstorm':'ideas','quick':'chat','collab':'docs'}
 CORRECT_M4 = {'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none','link':'restricted'}
 M3_COMMON_SLOT = 'tue15'
 TEAM_NAMES = ['АЛФА','БЕТА','ГАМА','ДЕЛТА','ОМЕГА','СИГМА','ТЕТА','ЗЕТА']
@@ -71,13 +73,14 @@ CLUES = [
   'Улика А · ЗАГЛАВИЕ: Събитието трябва да се нарича „Безопасно онлайн“.',
   'Улика Б · АУДИТОРИЯ: Поканени са учениците от 10. клас.',
   'Улика В · ПРОГРАМА: Включете трите теми „лични данни“, „фишинг“ и „цифров отпечатък“.',
-  'Улика Г · ОРГАНИЗАЦИЯ: Използвайте видеовръзка, общ документ и анкета за удобен час. Разпределете роли водещ, модератор и техническа поддръжка.'
+  'Улика Г · ОРГАНИЗАЦИЯ: Използвайте видеовръзка, общ документ и анкета за удобен час. Разпределете роли водещ, модератор и техническа поддръжка.',
+  'Улика Д · ПЛАН Б: Предвидете резервен начин за достъп до материалите при прекъсната видеовръзка, без да публикувате лични данни.'
 ]
 HINTS = {
-  1:'Помислете коя дейност има нужда от общо редактиране, коя — от анкета за дата и коя — от облачно хранилище.',
-  2:'Съберете информацията от личните улики на всички членове. Всеки трябва да добави поне една промяна, после приложете коментар.',
-  3:'Потърсете клетката, в която ВСИЧКИ петима участници са свободни.',
-  4:'Редактиране не е необходимо на всички: ограничете публичната връзка и задайте само минималните необходими права.',
+  1:'При всяка ситуация първо определете действието: редакция, коментар, споделяне на файл, планиране, среща или бърза координация. Сравнете близките варианти.',
+  2:'Съберете уликите, планирайте и резервен вариант при технически проблем. Всеки участник трябва да редактира и да обсъдите поне две подобрения.',
+  3:'Проверете свободните часове на всеки участник, после помислете как ще включите отсъстващ човек асинхронно.',
+  4:'След инцидент със споделен документ първо прекратете нежелания достъп и проверете историята на версиите.',
   5:'Изберете инструмент според конкретната задача, а не според популярността му.'
 }
 
@@ -138,7 +141,7 @@ def new_session(team_names, test_mode=False):
     code=''.join(secrets.choice('ABCDEFGHJKLMNPQRSTUVWXYZ23456789') for _ in range(6))
     return {'code': code, 'status':'running' if test_mode else 'lobby', 'test_mode':bool(test_mode),
         'created_at':now(), 'started_at':now() if test_mode else None, 'elapsed_before':0,
-        'duration':2700, 'teams':[new_team(name,i) for i,name in enumerate(team_names)]}
+        'duration':2400, 'teams':[new_team(name,i) for i,name in enumerate(team_names)]}
 
 def teacher_view(s):
     return {'code':s['code'], 'status':session_status(s), 'test_mode':s['test_mode'],
@@ -153,7 +156,7 @@ def student_view(s,t,p):
     # Digit of a mission is disclosed only after a server-validated completion.
     solved=set(map(int,t['answers'].keys()))
     clue_slots={}
-    for i in range(4):
+    for i in range(len(CLUES)):
         # stable per member slot, regardless of joining order
         index=i%max(1,len(t['players']))
         clue_slots.setdefault(index, []).append(CLUES[i])
@@ -184,34 +187,39 @@ def submit(t,s,p,mission,payload):
         wrong=[k for k,v in CORRECT_M1.items() if result.get(k)!=v]
         if wrong: errors.append('Има '+str(len(wrong))+' неправилни съответствия. Прегледайте избраните инструменти.')
         reason=str(payload.get('reason','')).strip()
-        if len(reason)<16: errors.append('Добавете кратка аргументация (поне 16 знака).')
-        evidence={'mapping':result,'reason':reason}
+        contrast=str(payload.get('contrast','')).strip()
+        if len(reason)<35: errors.append('Обяснете избора на поне две технологии (минимум 35 знака).')
+        if len(contrast)<35: errors.append('Обяснете защо друга привидно подходяща технология НЕ е подходяща (минимум 35 знака).')
+        evidence={'mapping':result,'reason':reason[:500],'contrast':contrast[:500]}
     elif mission==2:
         doc={k:v['value'].strip() for k,v in t['doc'].items()}
-        for k in ('title','audience','program','tools','roles'):
-            if len(doc.get(k,''))<6: errors.append('Попълнете всичките пет полета на общия документ.') ; break
+        for k in ('title','audience','program','tools','roles','fallback'):
+            if len(doc.get(k,''))<6: errors.append('Попълнете всичките шест полета на общия документ.') ; break
         if 'безопасно' not in doc.get('title','').lower():errors.append('В заглавието липсва темата на събитието от уликата.')
         if '10' not in doc.get('audience',''):errors.append('Уточнете за кой клас е събитието.')
         program=doc.get('program','').lower()
         if not all(x in program for x in ('лични данни','фишинг','цифров отпечатък')):
             errors.append('Програмата трябва да включва и трите теми от уликите.')
+        if len(doc.get('fallback',''))<35: errors.append('Опишете реалистичен резервен план при проблем с видеосрещата (поне 35 знака).')
         members=len(t['players']); contributors=set(e['player_id'] for e in t['edits'])
         if members>=2 and len(contributors)<members: errors.append('Всеки ученик от отбора трябва да редактира поне едно поле.')
-        if not any(c['applied'] for c in t['comments']): errors.append('Добавете коментар и отбележете, че предложението е приложено.')
+        if sum(bool(c['applied']) for c in t['comments'])<2: errors.append('Направете поне два коментара и отбележете, че предложенията са приложени.')
         if len(contributors)>=members and members>=2: bonus=10
         evidence={'doc':doc,'participants':len(contributors),'comments':t['comments']}
     elif mission==3:
         if payload.get('slot')!=M3_COMMON_SLOT: errors.append('Това не е общият свободен час на всички петима участници.')
         if payload.get('tool')!='Doodle': errors.append('Изберете инструмент, предназначен за съгласуване на дата и час.')
-        if len(str(payload.get('reason','')).strip())<14:errors.append('Обяснете защо избраният инструмент е подходящ.')
-        evidence={'slot':payload.get('slot'),'tool':payload.get('tool'),'reason':str(payload.get('reason',''))[:350]}
+        if payload.get('backup')!='record': errors.append('Планирайте как отсъстващ участник ще получи материалите и ще зададе въпрос.')
+        if len(str(payload.get('reason','')).strip())<35:errors.append('Обяснете как екипът координира участниците и защо този инструмент е подходящ (поне 35 знака).')
+        evidence={'slot':payload.get('slot'),'tool':payload.get('tool'),'backup':payload.get('backup'),'reason':str(payload.get('reason',''))[:350]}
     elif mission==4:
         rights=payload.get('rights',{})
         if not isinstance(rights,dict): rights={}
         wrong=[k for k,v in CORRECT_M4.items() if rights.get(k)!=v]
         if wrong: errors.append('Поправете '+str(len(wrong))+' настройки за достъп. Използвайте минималните необходими права.')
-        if len(str(payload.get('risk','')).strip())<16:errors.append('Опишете риск от неправилното споделяне.')
-        evidence={'rights':rights,'risk':str(payload.get('risk',''))[:350]}
+        if payload.get('incident')!='revoke':errors.append('Изберете безопасно действие при нежелана промяна от външен човек.')
+        if len(str(payload.get('risk','')).strip())<35:errors.append('Обяснете риск от неправилното споделяне и как ще го ограничите (минимум 35 знака).')
+        evidence={'rights':rights,'incident':payload.get('incident'),'risk':str(payload.get('risk',''))[:350]}
     elif mission==5:
         choices=payload.get('choices',{})
         valid={'webinar':['Google Meet','Microsoft Teams','Zoom'],
@@ -221,9 +229,10 @@ def submit(t,s,p,mission,payload):
           'ideas':['Padlet']}
         if not isinstance(choices,dict) or any(choices.get(k) not in vals for k,vals in valid.items()):
             errors.append('Проверете избраните инструменти за петте дейности.')
-        if len(str(payload.get('reason1','')).strip())<15 or len(str(payload.get('reason2','')).strip())<15:
-            errors.append('Напишете две обосновки за избраните инструменти (поне 15 знака).')
-        evidence={'choices':choices,'reason1':str(payload.get('reason1',''))[:400], 'reason2':str(payload.get('reason2',''))[:400]}
+        if payload.get('fallback')!='async': errors.append('Изберете достъпен асинхронен вариант за участник със слаба връзка.')
+        if len(str(payload.get('reason1','')).strip())<40 or len(str(payload.get('reason2','')).strip())<40:
+            errors.append('Напишете две аргументирани обосновки по 40 знака, включително конкретен пример.')
+        evidence={'choices':choices,'fallback':payload.get('fallback'),'reason1':str(payload.get('reason1',''))[:400], 'reason2':str(payload.get('reason2',''))[:400]}
     else:fail('Несъществуваща мисия.')
     if errors:
         t['attempts'][str(mission)] = t['attempts'].get(str(mission),0)+1
@@ -310,7 +319,7 @@ class Handler(BaseHTTPRequestHandler):
             if path=='/api/student/edit' and method=='POST':
                 s,t,player=get_player(self.headers);ensure_running(s,t,2)
                 field=p.get('field');value=p.get('value')
-                if field not in ('title','audience','program','tools','roles') or not isinstance(value,str) or not (1<=len(value)<=600):fail('Невалидно поле или текст.')
+                if field not in ('title','audience','program','tools','roles','fallback') or not isinstance(value,str) or not (1<=len(value)<=600):fail('Невалидно поле или текст.')
                 entry={'value':value,'nickname':player['nickname'],'player_id':player['id'],'updated_at':now()}
                 t['doc'][field]=entry;t['edits'].append({'field':field,**entry});save();return {'ok':True}
             if path=='/api/student/comment' and method=='POST':

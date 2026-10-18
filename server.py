@@ -66,7 +66,14 @@ TOOLS = {'docs': 'Google Docs / Word Online', 'ideas': 'Padlet', 'schedule': 'Do
          'chat': 'Екипен чат / Teams канал'}
 CORRECT_M1 = {'archive':'storage','review':'docs','date':'schedule','meeting':'webinar',
               'sharing':'storage','brainstorm':'ideas','quick':'chat','collab':'docs'}
-CORRECT_M4 = {'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none','link':'restricted'}
+CORRECT_M4 = {
+    'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none',
+    'link':'restricted','cowriter':'edit','press':'view','expert':'comment'
+}
+CORRECT_M5 = {
+    'webinar':'moderated', 'docs':'restricted-edit', 'files':'only-pdf',
+    'time':'poll', 'ideas':'padlet-vote', 'feedback':'anonymous-form'
+}
 M3_COMMON_SLOT = 'tue15'
 TEAM_NAMES = ['АЛФА','БЕТА','ГАМА','ДЕЛТА','ОМЕГА','СИГМА','ТЕТА','ЗЕТА']
 CLUES = [
@@ -80,8 +87,8 @@ HINTS = {
   1:'При всяка ситуация първо определете действието: редакция, коментар, споделяне на файл, планиране, среща или бърза координация. Сравнете близките варианти.',
   2:'Съберете уликите, планирайте и резервен вариант при технически проблем. Всеки участник трябва да редактира и да обсъдите поне две подобрения.',
   3:'Проверете свободните часове на всеки участник, после помислете как ще включите отсъстващ човек асинхронно.',
-  4:'След инцидент със споделен документ първо прекратете нежелания достъп и проверете историята на версиите.',
-  5:'Изберете инструмент според конкретната задача, а не според популярността му.'
+  4:'Разделете проблема на две части: необходимите права за всеки човек и действията след нежелана редакция. Най-малките достатъчни права намаляват риска.',
+  5:'Сравнете целия работен процес: синхронност, права за достъп, обратна връзка и възстановяване. Един инструмент може да е удобен, но да не изпълнява всички условия.'
 }
 
 def now(): return time.time()
@@ -155,11 +162,14 @@ def teacher_view(s):
 def student_view(s,t,p):
     # Digit of a mission is disclosed only after a server-validated completion.
     solved=set(map(int,t['answers'].keys()))
-    clue_slots={}
-    for i in range(len(CLUES)):
-        # stable per member slot, regardless of joining order
-        index=i%max(1,len(t['players']))
-        clue_slots.setdefault(index, []).append(CLUES[i])
+    # Every clue belongs to exactly one current team member. The sole participant
+    # sees all clues, but as soon as others join the individual allocations change.
+    members=len(t['players'])
+    clue_slots={index:[] for index in range(members)}
+    for i, clue in enumerate(CLUES):
+        clue_slots[i % members].append(clue)
+    active_clues=clue_slots.get(p['slot'],[]) if t['current']==2 else []
+
     return {'session':{'code':s['code'],'status':session_status(s),'elapsed':sec(s),'duration':s['duration'],'test_mode':s['test_mode']},
         'team':{'name':t['name'],'current':t['current'],'score':t['score'],'hints':t['hints'],
                 'attempts':t['attempts'],'digits':[t['digits'][i] if (i+1) in solved else None for i in range(5)],
@@ -167,8 +177,8 @@ def student_view(s,t,p):
         'me':{'id':p['id'],'nickname':p['nickname']},
         'players':[{'nickname':m['nickname'], 'online':now()-m.get('last_seen',0)<20,
                     'contributions':sum(1 for e in t['edits'] if e['player_id']==m['id'])} for m in t['players']],
-        'm2':{'clues':clue_slots.get(p['slot'],[]), 'doc':t['doc'],
-              'comments':t['comments']},
+        'm2':{'clues':active_clues, 'clues_total':len(CLUES), 'team_size':members,
+              'doc':t['doc'], 'comments':t['comments']},
         'hint_texts':{str(i):HINTS[i] for i in t['hints']}}
 
 def score(t,m,bonus=0):
@@ -217,22 +227,29 @@ def submit(t,s,p,mission,payload):
         if not isinstance(rights,dict): rights={}
         wrong=[k for k,v in CORRECT_M4.items() if rights.get(k)!=v]
         if wrong: errors.append('Поправете '+str(len(wrong))+' настройки за достъп. Използвайте минималните необходими права.')
-        if payload.get('incident')!='revoke':errors.append('Изберете безопасно действие при нежелана промяна от външен човек.')
-        if len(str(payload.get('risk','')).strip())<35:errors.append('Обяснете риск от неправилното споделяне и как ще го ограничите (минимум 35 знака).')
-        evidence={'rights':rights,'incident':payload.get('incident'),'risk':str(payload.get('risk',''))[:350]}
+        if payload.get('incident')!='revoke':
+            errors.append('Прегледайте първата реакция при компрометирано споделяне.')
+        if payload.get('recovery')!='restore':
+            errors.append('Проверете как ще установите и възстановите достоверна версия на документа.')
+        if len(str(payload.get('risk','')).strip())<55:
+            errors.append('Опишете риска, първата реакция и превенцията с поне 55 знака.')
+        evidence={'rights':rights,'incident':payload.get('incident'),
+                  'recovery':payload.get('recovery'),'risk':str(payload.get('risk',''))[:550]}
     elif mission==5:
         choices=payload.get('choices',{})
-        valid={'webinar':['Google Meet','Microsoft Teams','Zoom'],
-          'docs':['Google Docs','Word Online'],
-          'files':['Google Drive','OneDrive'],
-          'time':['Doodle'],
-          'ideas':['Padlet']}
-        if not isinstance(choices,dict) or any(choices.get(k) not in vals for k,vals in valid.items()):
-            errors.append('Проверете избраните инструменти за петте дейности.')
-        if payload.get('fallback')!='async': errors.append('Изберете достъпен асинхронен вариант за участник със слаба връзка.')
-        if len(str(payload.get('reason1','')).strip())<40 or len(str(payload.get('reason2','')).strip())<40:
-            errors.append('Напишете две аргументирани обосновки по 40 знака, включително конкретен пример.')
-        evidence={'choices':choices,'fallback':payload.get('fallback'),'reason1':str(payload.get('reason1',''))[:400], 'reason2':str(payload.get('reason2',''))[:400]}
+        if not isinstance(choices,dict) or any(choices.get(k)!=v for k,v in CORRECT_M5.items()):
+            errors.append('Има несъответствие с условията в един или повече планове за конференцията.')
+        if payload.get('fallback')!='async':
+            errors.append('Изберете достъпен асинхронен вариант за участник със слаба връзка.')
+        r1=str(payload.get('reason1','')).strip()
+        r2=str(payload.get('reason2','')).strip()
+        contrast=str(payload.get('tradeoff','')).strip()
+        if len(r1)<45 or len(r2)<45:
+            errors.append('Дайте две конкретни обосновки (всяка поне 45 знака).')
+        if len(contrast)<45:
+            errors.append('Сравнете избраното решение с правдоподобна, но по-неподходяща алтернатива (поне 45 знака).')
+        evidence={'choices':choices,'fallback':payload.get('fallback'),
+                  'reason1':r1[:500],'reason2':r2[:500],'tradeoff':contrast[:500]}
     else:fail('Несъществуваща мисия.')
     if errors:
         t['attempts'][str(mission)] = t['attempts'].get(str(mission),0)+1

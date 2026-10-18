@@ -367,6 +367,11 @@ class Handler(BaseHTTPRequestHandler):
                 s,t,player=get_player(self.headers);ensure_running(s,t,2)
                 field=p.get('field');value=p.get('value')
                 if field not in ('title','audience','program','tools','roles','fallback') or not isinstance(value,str) or not (1<=len(value)<=600):fail('Невалидно поле или текст.')
+                # Optimistic concurrency: never silently overwrite an unseen edit.
+                previous=t['doc'].get(field)
+                revision=p.get('revision',0)
+                if not isinstance(revision,(int,float)) or float(revision)!=float(previous.get('updated_at',0) if previous else 0):
+                    fail('Полето е променено от съотборник. Копирайте своя текст, обновете полето и обединете редакциите.',409)
                 entry={'value':value,'nickname':player['nickname'],'player_id':player['id'],'updated_at':now()}
                 t['doc'][field]=entry;t['edits'].append({'field':field,**entry});save();return {'ok':True}
             if path=='/api/student/comment' and method=='POST':

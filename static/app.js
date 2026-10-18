@@ -6,7 +6,7 @@ const ui = {
   teacherKey: localStorage.getItem(PREFIX+'teacher')||'', token: localStorage.getItem(PREFIX+'player')||'',
   code: new URLSearchParams(location.search).get('code')||'', joined: null, selectedTeam:'',
   mission1:{}, mission3:{}, mission4:{}, mission5:{}, typed:{},
-  audio:localStorage.getItem(PREFIX+'audio')!=='off', teacherData:null, playData:null, lan:'', loading:false, creating:false,
+  audio:localStorage.getItem(PREFIX+'audio')!=='off', teacherData:null, playData:null, lan:'', loading:false, creating:false, joinLookupRunning:false, joinLookupDone:false,
   teacherViewStamp:null, playViewStamp:null, healthChecked:false
 };
 const sceneNames=['Изчезналият файл','Синхронизирай екипа','Невъзможната среща','Опасната връзка','Финално отключване'];
@@ -247,7 +247,19 @@ async function refresh(force=false){
     }
     return;
   }
-  if(path==='/join'){joinPage();return;}
+  if(path==='/join'){
+    // A QR link carries the class code, so verify it and show teams automatically.
+    if(ui.code&&!ui.joined&&!ui.joinLookupDone&&!ui.joinLookupRunning){
+      ui.joinLookupRunning=true;
+      try{
+        const data=await api('public/session',{code:ui.code});
+        if(location.pathname===path)ui.joined=data;
+      }catch(e){if(location.pathname===path)message(e.message,true);}
+      finally{ui.joinLookupRunning=false;ui.joinLookupDone=true;}
+    }
+    joinPage();
+    return;
+  }
   if(path==='/play'){
     if(!ui.token){go('/join');return;}
     try{
@@ -306,7 +318,7 @@ async function click(act,b){
   }
   else if(act==='check-code'){
     ui.code=getVal('game-code').trim().toUpperCase();if(!ui.code)throw Error('Въведете код за игра.');
-    ui.joined=await api('public/session',{code:ui.code});ui.selectedTeam='';joinPage();
+    ui.joined=await api('public/session',{code:ui.code});ui.joinLookupDone=true;ui.selectedTeam='';joinPage();
   }
   else if(act==='choose-team'){captureTyped();ui.selectedTeam=b.dataset.team;joinPage();}
   else if(act==='join'){

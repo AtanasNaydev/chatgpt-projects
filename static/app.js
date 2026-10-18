@@ -83,10 +83,10 @@ ui.joinLink=joinLink;
 app.querySelectorAll('details[data-team-details]').forEach(el=>{if(expanded.has(el.dataset.teamDetails))el.open=true;});
 }
 function joinPage(){const data=ui.joined;app.innerHTML=shell(`<section class="mission-head"><span class="eyebrow">ДОСТЪП ДО МИСИЯТА</span><h1>Присъедини се към екипа</h1><p>Работете заедно. Всеки участник трябва да има собствен компютър и да избере същия отбор.</p></section><div class="card" style="max-width:730px"><div class="stack"><div><label class="field">Шестсимволен код от учителя</label><div class="flex"><input id="game-code" class="input mono" maxlength="6" placeholder="напр. A7K3PN" value="${esc(ui.code)}" style="flex:1;letter-spacing:2px;text-transform:uppercase">${btn('check-code','ПРОВЕРИ КОДА','primary')}</div></div>${data?`<div class="divider"></div><span class="eyebrow">ИЗБЕРИ ОТБОР</span><div class="two">${data.teams.map(t=>`<button class="select-team ${ui.selectedTeam===t.id?'active':''}" data-act="choose-team" data-team="${t.id}" ${t.full?'disabled':''}><strong>${esc(t.name)}</strong><small>${t.full?'Отборът е пълен':`${t.count}/4 участници`}</small></button>`).join('')}</div><div><label class="field">Твоят прякор (без фамилия)</label><input class="input" id="nickname" placeholder="Например: Агент_7" maxlength="22" value="${esc(ui.typed.nickname||'')}"></div>${btn('join','ВЛЕЗ В МИСИЯТА','gold',ui.selectedTeam?'':'disabled')}<p class="help">Ако играта вече е стартирала, ще се включиш в текущия напредък на избрания отбор.</p>`:''}</div></div>`,ui.token?`<a href="/play" data-nav="/play" class="btn small ghost">Към моята игра</a>`:'');}
-function playHeader(d){return `<section class="mission-head"><div class="flex between"><span class="eyebrow">ОТБОР ${esc(d.team.name)} · АГЕНТ ${esc(d.me.nickname)}</span><span class="tag ${d.session.status==='running'?'green':'amber'}">${statusText(d.session.status)}</span></div><h1>МИСИЯ 404 <span style="color:var(--cyan)">/ ОПЕРАЦИЯ</span></h1><div class="flex between" style="margin-top:18px"><div>${progress(d.team.current)}</div><div class="timer">◷ ${fmt(d.session.duration-d.session.elapsed)}</div></div><div class="flex between" style="margin-top:16px"><span class="tag">Точки: <strong>${d.team.score}</strong></span><span class="tag">Екип: ${d.players.length}/4 участници</span></div></section>`;}
-function missionFrame(d,m,content){return playHeader(d)+`<div class="card emphasis"><div class="flex between"><span class="eyebrow">МИСИЯ 0${m} / 05</span><span class="tag amber">Максимум 100 точки</span></div><h2 style="font-size:clamp(23px,3.2vw,34px);margin:8px 0">${sceneNames[m-1]}</h2><p class="subtle">${missionDescriptions[m-1]}</p></div><div style="height:20px"></div>${content}<div class="card" style="margin-top:15px"><div class="flex between"><div><strong>Нуждаеш се от помощ?</strong><p class="help">Една подсказка за мисия, –10 точки.</p></div>${btn('hint','◈ ПОДСКАЗКА','ghost small')}</div>${d.hint_texts[String(m)]?`<div class="info warning" style="margin-top:13px">${esc(d.hint_texts[String(m)])}</div>`:''}</div>`;}
+function playHeader(d){return `<section class="mission-head"><div class="flex between"><span class="eyebrow">ОТБОР ${esc(d.team.name)} · АГЕНТ ${esc(d.me.nickname)}</span><span class="tag ${d.session.status==='running'?'green':'amber'}">${statusText(d.session.status)}</span></div><h1>МИСИЯ 404 <span style="color:var(--cyan)">/ ОПЕРАЦИЯ</span></h1><div class="flex between" style="margin-top:18px"><div>${progress(d.team.current)}</div><div class="timer">◷ ${fmt(d.session.duration-d.session.elapsed)}</div></div><div class="flex between" style="margin-top:16px"><span class="tag">Точки: <strong data-team-score>${d.team.score}</strong></span><span class="tag">Екип: <strong data-player-count>${d.players.length}</strong>/4 участници</span></div></section>`;}
+function missionFrame(d,m,content){return playHeader(d)+`<div class="card emphasis"><div class="flex between"><span class="eyebrow">МИСИЯ 0${m} / 05</span><span class="tag amber">Максимум 100 точки</span></div><h2 style="font-size:clamp(23px,3.2vw,34px);margin:8px 0">${sceneNames[m-1]}</h2><p class="subtle">${missionDescriptions[m-1]}</p></div><div style="height:20px"></div>${content}<div class="card" style="margin-top:15px"><div class="flex between"><div><strong>Нуждаеш се от помощ?</strong><p class="help">Една подсказка за мисия, –10 точки.</p></div>${btn('hint','◈ ПОДСКАЗКА','ghost small')}</div><div data-hint-content>${d.hint_texts[String(m)]?`<div class="info warning" style="margin-top:13px">${esc(d.hint_texts[String(m)])}</div>`:''}</div></div>`;}
 function m1(d){let rows=m1Needs.map(([key,label],i)=>`<div class="challenge"><div><span class="kicker">СИТУАЦИЯ 0${i+1}</span><strong>${label}</strong></div><select class="input" data-choose="m1" data-id="${key}"><option value="">— Избери категория —</option>${toolOptions.map(([value,txt])=>`<option value="${value}" ${ui.mission1[key]===value?'selected':''}>${txt}</option>`).join('')}</select></div>`).join('');return missionFrame(d,1,`<div class="card"><p class="instruction">За всяка ситуация избери подходящата технологична категория. Обсъдете решенията, преди да ги изпратите.</p><div class="mission-grid">${rows}</div><div class="divider"></div><label class="field">Защо избра този вид средства? Дай пример с конкретен инструмент.</label><textarea id="m1-reason" placeholder="Например: Използваме ... защото ...">${esc(ui.typed.m1||'')}</textarea><div class="flex" style="margin-top:17px">${btn('submit1','ПРОВЕРИ РЕШЕНИЕТО →','primary')}</div></div>`);}
-function m2(d){const doc=d.m2.doc;const titles=[['title','Заглавие на конференцията'],['audience','За кого е предназначена?'],['program','Програма (3 теми)'],['tools','Дигитални средства за организация'],['roles','Роли и отговорности']];return missionFrame(d,2,`<div class="info" style="margin-bottom:17px"><strong>Тайна информация:</strong> Всеки ученик вижда само своята част от уликите. Разкажете си я и изгответе заедно общ план!</div><div class="doc-grid"><div class="card"><span class="eyebrow">СПОДЕЛЕН ОНЛАЙН ДОКУМЕНТ · ТРЕНИРОВЪЧЕН МОДУЛ</span><h3 class="card-title">План за училищен уебинар</h3><div class="stack">${titles.map(([id,title])=>`<div class="doc-field"><label>${title}</label><textarea data-field="${id}" placeholder="Екипът попълва това поле...">${esc(doc[id]?.value||'')}</textarea><div class="flex between"><small class="meta">${doc[id]?'Последна промяна: '+esc(doc[id].nickname):'Няма въведена информация'}</small><button class="btn small ghost" data-act="save-field" data-field="${id}">Запази промяната</button></div></div>`).join('')}</div></div><div class="stack"><div class="card emphasis"><span class="eyebrow">ТВОИТЕ УЛИКИ</span>${d.m2.clues.length?d.m2.clues.map(clue=>`<div class="info" style="margin-top:12px">${esc(clue)}</div>`).join(''):'<p class="help">Няма получена улика. Покани останалите.</p>'}<p class="help">Не можеш да видиш уликите на другите агенти — общувайте помежду си.</p></div><div class="card"><span class="eyebrow">ЧЛЕНОВЕ НА ЕКИПА</span><div class="stack" style="gap:8px;margin-top:10px">${d.players.map(pl=>`<div class="flex between"><span class="user-chip ${pl.nickname===d.me.nickname?'me':''}">${pl.online?'● ':''}${esc(pl.nickname)}</span><span class="subtle">${pl.contributions} редакции</span></div>`).join('')}</div><p class="help">Всеки член трябва да запази поне една промяна.</p></div><div class="card"><span class="eyebrow">КОМЕНТАРИ И ПОДОБРЕНИЯ</span><div style="margin:12px 0">${d.m2.comments.map(c=>`<div class="chatmsg"><small>${esc(c.nickname)}</small><p>${esc(c.body)}</p>${c.applied?'<span class="tag green">✓ Приложено</span>':`<button class="btn small ghost" data-act="apply-comment" data-comment="${c.id}">Отбележи като приложено</button>`}</div>`).join('')||'<p class="help">Още няма коментари.</p>'}</div><textarea id="comment" placeholder="Предложение за подобрение..." style="min-height:74px"></textarea><div style="margin-top:9px">${btn('add-comment','ИЗПРАТИ КОМЕНТАР','ghost small')}</div></div></div></div><div class="card" style="margin-top:17px"><p class="help">Първо попълнете всички полета, уверете се, че всеки е допринесъл, и приложете поне един коментар. Тогава натиснете проверка.</p><div class="flex" style="margin-top:13px">${btn('submit2','ПОТВЪРДИ СЪВМЕСТНАТА РАБОТА →','primary')}</div></div>`);}
+function m2(d){const doc=d.m2.doc;const titles=[['title','Заглавие на конференцията'],['audience','За кого е предназначена?'],['program','Програма (3 теми)'],['tools','Дигитални средства за организация'],['roles','Роли и отговорности']];return missionFrame(d,2,`<div class="info" style="margin-bottom:17px"><strong>Тайна информация:</strong> Всеки ученик вижда само своята част от уликите. Разкажете си я и изгответе заедно общ план!</div><div class="doc-grid"><div class="card"><span class="eyebrow">СПОДЕЛЕН ОНЛАЙН ДОКУМЕНТ · ТРЕНИРОВЪЧЕН МОДУЛ</span><h3 class="card-title">План за училищен уебинар</h3><div class="stack">${titles.map(([id,title])=>`<div class="doc-field"><label>${title}</label><textarea data-field="${id}" placeholder="Екипът попълва това поле...">${esc(doc[id]?.value||'')}</textarea><div class="flex between"><small class="meta">${doc[id]?'Последна промяна: '+esc(doc[id].nickname):'Няма въведена информация'}</small><button class="btn small ghost" data-act="save-field" data-field="${id}">Запази промяната</button></div></div>`).join('')}</div></div><div class="stack"><div class="card emphasis"><span class="eyebrow">ТВОИТЕ УЛИКИ</span><div data-m2-clues>${d.m2.clues.length?d.m2.clues.map(clue=>`<div class="info" style="margin-top:12px">${esc(clue)}</div>`).join(''):'<p class="help">Няма получена улика. Покани останалите.</p>'}</div><p class="help">Не можеш да видиш уликите на другите агенти — общувайте помежду си.</p></div><div class="card"><span class="eyebrow">ЧЛЕНОВЕ НА ЕКИПА</span><div class="stack" data-m2-members style="gap:8px;margin-top:10px">${d.players.map(pl=>`<div class="flex between"><span class="user-chip ${pl.nickname===d.me.nickname?'me':''}">${pl.online?'● ':''}${esc(pl.nickname)}</span><span class="subtle">${pl.contributions} редакции</span></div>`).join('')}</div><p class="help">Всеки член трябва да запази поне една промяна.</p></div><div class="card"><span class="eyebrow">КОМЕНТАРИ И ПОДОБРЕНИЯ</span><div data-m2-comments style="margin:12px 0">${d.m2.comments.map(c=>`<div class="chatmsg"><small>${esc(c.nickname)}</small><p>${esc(c.body)}</p>${c.applied?'<span class="tag green">✓ Приложено</span>':`<button class="btn small ghost" data-act="apply-comment" data-comment="${c.id}">Отбележи като приложено</button>`}</div>`).join('')||'<p class="help">Още няма коментари.</p>'}</div><textarea id="comment" placeholder="Предложение за подобрение..." style="min-height:74px"></textarea><div style="margin-top:9px">${btn('add-comment','ИЗПРАТИ КОМЕНТАР','ghost small')}</div></div></div></div><div class="card" style="margin-top:17px"><p class="help">Първо попълнете всички полета, уверете се, че всеки е допринесъл, и приложете поне един коментар. Тогава натиснете проверка.</p><div class="flex" style="margin-top:13px">${btn('submit2','ПОТВЪРДИ СЪВМЕСТНАТА РАБОТА →','primary')}</div></div>`);}
 function m3(d){const selected=ui.mission3.slot||'';return missionFrame(d,3,`<div class="card"><p class="instruction">Петима участници са посочили свободните си часове. Намерете <strong>единствения</strong> удобен час за всички и изберете инструмент за координиране на срещата.</p><div class="schedule"><table><thead><tr><th>Участник</th>${calSlots.map(v=>`<th>${v[1]}</th>`).join('')}</tr></thead><tbody>${calPeople.map(([name,slots])=>`<tr><td><strong>${name}</strong></td>${calSlots.map(([id])=>`<td class="${slots.includes(id)?'available':'off'}">${slots.includes(id)?'✓':'—'}</td>`).join('')}</tr>`).join('')}</tbody></table></div><span class="eyebrow">ИЗБЕРИ ОБЩИЯ ЧАС</span><div class="choices" style="margin:13px 0 22px">${calSlots.map(([slot,label])=>`<button class="choice ${selected===slot?'active':''}" data-act="choose-slot" data-slot="${slot}">${label}</button>`).join('')}</div><div class="formgrid"><div><label class="field">Инструмент за съгласуване на дата</label><select id="m3-tool" class="input" data-choose="m3-tool"><option value="">Избери инструмент</option>${['Padlet','Doodle','Google Docs','Paint'].map(x=>`<option ${ui.mission3.tool===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label class="field">Защо този инструмент е подходящ?</label><textarea id="m3-reason" placeholder="Когато участниците имат различни графици...">${esc(ui.typed.m3||'')}</textarea></div></div><div style="margin-top:18px">${btn('submit3','ПРОВЕРИ ПЛАНИРАНЕТО →','primary')}</div></div>`);}
 function m4(d){return missionFrame(d,4,`<div class="card"><div class="info warning" style="margin-bottom:16px"><strong>ОПАСНОСТ:</strong> „Всеки с връзката може да редактира“. Открийте какви права трябва да има всеки участник и ограничете общия достъп.</div><div class="mission-grid">${m4Needs.map(([key,label])=>`<div class="challenge"><div><span class="kicker">НАСТРОЙКА</span><strong>${label}</strong></div><select class="input" data-choose="m4" data-id="${key}"><option value="">— Избери право —</option>${m4Rights.filter(x=>key==='link'?['restricted','public-edit'].includes(x[0]):!['restricted','public-edit'].includes(x[0])).map(([val,txt])=>`<option value="${val}" ${ui.mission4[key]===val?'selected':''}>${txt}</option>`).join('')}</select></div>`).join('')}</div><div class="divider"></div><label class="field">Каква опасност може да възникне при неправилно споделяне?</label><textarea id="m4-reason" placeholder="Ако всеки с връзката има право да редактира...">${esc(ui.typed.m4||'')}</textarea><div style="margin-top:16px">${btn('submit4','ПРОВЕРИ ЗАЩИТАТА →','primary')}</div></div>`);}
 function m5(d){return missionFrame(d,5,`<div class="card"><p class="instruction">Конференцията е почти спасена. Изберете подходящ инструмент за всяка дейност и аргументирайте два от изборите си.</p><div class="mission-grid">${m5Categories.map(([key,label,choices])=>`<div class="challenge"><div><span class="kicker">РЕСУРС</span><strong>${label}</strong></div><select class="input" data-choose="m5" data-id="${key}"><option value="">— Избери средство —</option>${choices.map(x=>`<option ${ui.mission5[key]===x?'selected':''}>${x}</option>`).join('')}</select></div>`).join('')}</div><div class="divider"></div><div class="two"><div><label class="field">Обосновка №1 — избор на средство за общуване</label><textarea id="m5-reason1" placeholder="Избрахме ..., защото ...">${esc(ui.typed.m5a||'')}</textarea></div><div><label class="field">Обосновка №2 — избор на средство за обща работа</label><textarea id="m5-reason2" placeholder="Избрахме ..., защото ...">${esc(ui.typed.m5b||'')}</textarea></div></div><div style="margin-top:17px">${btn('submit5','АКТИВИРАЙ ФИНАЛНИЯ КОД →','primary')}</div></div>`);}
@@ -99,15 +99,58 @@ function teacherViewSignature(session){
   if(!session)return 'no-session';
   return JSON.stringify({
     code:session.code,status:session.status,test_mode:session.test_mode,
-    teams:session.teams.map(t=>({id:t.id,name:t.name,players:t.players,
+    teams:session.teams.map(t=>({id:t.id,name:t.name,players:t.players.map(p=>p.nickname),
       current:t.current,score:t.score,answers:t.answers,finished_at:t.finished_at}))
   });
 }
+// Only switches between missions/phases require rebuilding the student page.
 function playViewSignature(d){
   return JSON.stringify({
-    session:{code:d.session.code,status:d.session.status,test_mode:d.session.test_mode},
-    team:d.team,players:d.players,m2:d.m2,hint_texts:d.hint_texts
+    session:d.session.code,
+    status:d.session.status,
+    mission:d.team.current,
+    completed:d.team.finished_at,
+    name:d.team.name,
+    playerId:d.me.id
   });
+}
+function syncStudentChrome(d){
+  const score=app.querySelector('[data-team-score]');
+  const count=app.querySelector('[data-player-count]');
+  if(score&&score.textContent!==String(d.team.score))score.textContent=String(d.team.score);
+  if(count&&count.textContent!==String(d.players.length))count.textContent=String(d.players.length);
+  const hint=app.querySelector('[data-hint-content]');
+  if(hint){
+    const text=d.hint_texts[String(d.team.current)];
+    const next=text?`<div class="info warning" style="margin-top:13px">${esc(text)}</div>`:'';
+    if(hint.innerHTML!==next)hint.innerHTML=next;
+  }
+}
+// Mission 2 is truly collaborative. Update ONLY changed fields and sidebar areas.
+// Never replace a textarea containing a local unsaved draft or holding focus.
+function syncMissionTwo(previous,d){
+  if(d.team.current!==2||d.session.status!=='running'||!app.querySelector('[data-field]'))return;
+  const oldDoc=previous?.m2?.doc||{};
+  const tmp=document.createElement('div');
+  tmp.innerHTML=m2(d);
+  for(const field of app.querySelectorAll('textarea[data-field]')){
+    const id=field.dataset.field;
+    const newText=String(d.m2.doc[id]?.value||'');
+    const previouslySynced=field.dataset.serverValue??String(oldDoc[id]?.value||'');
+    const safe=document.activeElement!==field&&field.value===previouslySynced;
+    if(safe){
+      if(field.value!==newText)field.value=newText;
+      field.dataset.serverValue=newText;
+    }
+    const meta=field.closest('.doc-field')?.querySelector('.meta');
+    const nextMeta=tmp.querySelector(`textarea[data-field="${id}"]`)?.closest('.doc-field')?.querySelector('.meta');
+    if(meta&&nextMeta&&meta.textContent!==nextMeta.textContent)meta.textContent=nextMeta.textContent;
+  }
+  for(const attr of ['data-m2-members','data-m2-comments','data-m2-clues']){
+    const live=app.querySelector('['+attr+']');
+    const next=tmp.querySelector('['+attr+']');
+    if(live&&next&&live.innerHTML!==next.innerHTML)live.innerHTML=next.innerHTML;
+  }
 }
 function syncClocks(){
   if(location.pathname==='/teacher'){
@@ -131,6 +174,7 @@ async function refresh(force=false){
     if(ui.creating)return;
     try{
       const data=await api('teacher/state',undefined,'teacher');
+      if(location.pathname!==path)return;
       ui.teacherData=data;
       if(!ui.healthChecked){
         ui.healthChecked=true;
@@ -157,14 +201,16 @@ async function refresh(force=false){
     try{
       const previous=ui.playData;
       const d=await api('student/state',undefined,'student');
-      const changed=previous&&d.team.current!==previous.team.current;
-      ui.playData=d;
+      if(location.pathname!==path)return;
       const stamp=playViewSignature(d);
-      const editing=document.activeElement?.matches('input,textarea,select');
-      const statusChanged=previous&&d.session.status!==previous.session.status;
-      if(force||changed||statusChanged||(!editing&&ui.playViewStamp!==stamp)){
+      ui.playData=d;
+      if(force||ui.playViewStamp!==stamp||!app.querySelector('.shell')){
         playPage();
         ui.playViewStamp=stamp;
+      }else{
+        syncStudentChrome(d);
+        // Side-by-side updates preserve unsaved work in the shared document.
+        syncMissionTwo(previous,d);
       }
       syncClocks();
     }catch(e){
@@ -176,7 +222,7 @@ async function refresh(force=false){
   }
   renderLanding();
 }
-async function post(path,data,mode='student'){let r=await api(path,data,mode);await refresh(true);return r;}
+async function post(path,data,mode='student'){let r=await api(path,data,mode);await refresh(mode!=='student');return r;}
 function getVal(id){return document.getElementById(id)?.value||'';}
 function captureTyped(){for(const [id,key] of [['m1-reason','m1'],['m3-reason','m3'],['m4-reason','m4'],['m5-reason1','m5a'],['m5-reason2','m5b'],['nickname','nickname']]){const el=document.getElementById(id);if(el)ui.typed[key]=el.value;}}
 async function click(act,b){
@@ -260,4 +306,9 @@ document.addEventListener('change',e=>{
 });
 window.addEventListener('popstate',()=>refresh(true));
 refresh(true);
-setInterval(()=>{if(location.pathname==='/play'||location.pathname==='/teacher')refresh(false);},2500);
+let backgroundRefreshBusy=false;
+setInterval(async()=>{
+  if(backgroundRefreshBusy||!['/play','/teacher'].includes(location.pathname))return;
+  backgroundRefreshBusy=true;
+  try{await refresh(false);}finally{backgroundRefreshBusy=false;}
+},2500);

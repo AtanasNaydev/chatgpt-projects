@@ -75,9 +75,14 @@ def run():
             assert sum(len(solo_view(tok)['clues']) for tok in remaining)==5
             recovered=request('student/join',{'code':code,'team_id':second_team,'nickname':'Нов_агент'})['token']
             assert sum(len(solo_view(tok)['clues']) for tok in remaining+[recovered])==5
-            fields={'title':'Безопасно онлайн','audience':'Ученици от 10. клас','program':'Лични данни; фишинг; цифров отпечатък','tools':'Google Meet, Google Docs и Doodle','roles':'Водещ, модератор и техническа поддръжка','fallback':'Ако видеосрещата прекъсне, ще изпратим материалите чрез ограничен линк и ще съберем въпросите писмено.'}
+            fields={'title':'Сигурност онлайн','audience':'Ученици от десети клас','program':'Персонални данни; фишинг; дигитален отпечатък','tools':'Google Meet, Google Docs и Doodle','roles':'Водещ, модератор и техническа поддръжка','fallback':'Ако видеосрещата прекъсне, ще изпратим материалите чрез ограничен линк и ще съберем въпросите писмено.'}
             for idx,(k,v) in enumerate(fields.items()):
                 request('student/edit',{'field':k,'value':v},'student',students[idx%3])
+            # A stale second device must never silently replace saved work.
+            try:
+                request('student/edit',{'field':'title','value':'Нова версия','revision':0},'student',students[1])
+                raise AssertionError('Stale edit unexpectedly accepted')
+            except Exception as exc:assert '409' in str(exc)
             request('student/comment',{'action':'add','body':'Да включим и пример за защита срещу фишинг.'},'student',students[1]);comment=state(0)['m2']['comments'][0]['id']
             request('student/comment',{'action':'apply','id':comment},'student',students[2]); request('student/comment',{'action':'add','body':'Да публикуваме предварително и програмата за участниците.'},'student',students[2]); comment2=state(0)['m2']['comments'][1]['id'];request('student/comment',{'action':'apply','id':comment2},'student',students[0]); result=request('student/submit',{'mission':2,'payload':{}},'student',students[0]);assert result['ok'] and result['earned']==60
             result=request('student/submit',{'mission':3,'payload':{'slot':'tue15','tool':'Doodle','backup':'record','reason':'Doodle помага за събиране на възможните часове на всеки участник и предотвратява насрочване на среща, на която някой не може да присъства.'}},'student',students[0]);assert result['ok']

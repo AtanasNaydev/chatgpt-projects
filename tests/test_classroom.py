@@ -29,7 +29,7 @@ def run():
             else:raise Exception('Server not ready')
             assert request('teacher/auth',{'key':teacher})['ok']
             t=request('teacher/create',{'names':['АЛФА','БЕТА','ГАМА']},role='teacher')['session']
-            code=t['code'];team=t['teams'][0]['id']; assert len(code)==6
+            code=t['code'];team=t['teams'][0]['id']; assert len(code)==6 and t['duration']==2400
             assert request('public/session',{'code':code})['teams'][0]['name']=='АЛФА'
             students=[]
             for nick in ['Агент_1','Агент_2','Агент_3']:
@@ -39,16 +39,16 @@ def run():
             def state(i=0):return request('student/state',role='student',token=students[i])
             assert state()['team']['current']==1
             bad=request('student/submit',{'mission':1,'payload':{'mapping':{'collab':'ideas'},'reason':'Някакъв текст за екипа'}},'student',students[0]);assert not bad['ok']
-            good=request('student/submit',{'mission':1,'payload':{'mapping':{'collab':'docs','brainstorm':'ideas','date':'schedule','meeting':'webinar','archive':'storage'},'reason':'Общите документи позволяват едновременна работа на екипа.'}},'student',students[0]);assert good['ok'] and len(good['digit'])==1
+            good=request('student/submit',{'mission':1,'payload':{'mapping':{'archive':'storage','review':'docs','date':'schedule','meeting':'webinar','sharing':'storage','brainstorm':'ideas','quick':'chat','collab':'docs'},'reason':'Общите документи позволяват едновременна работа на екипа и обратна връзка по отделни пасажи.','contrast':'Не бих използвал чат за редакция на документи, защото там не се поддържат версии и коментари по отделните пасажи.'}},'student',students[0]);assert good['ok'] and len(good['digit'])==1
             assert good['earned']==90
-            fields={'title':'Безопасно онлайн','audience':'Ученици от 10. клас','program':'Лични данни; фишинг; цифров отпечатък','tools':'Google Meet, Google Docs и Doodle','roles':'Водещ, модератор и техническа поддръжка'}
+            fields={'title':'Безопасно онлайн','audience':'Ученици от 10. клас','program':'Лични данни; фишинг; цифров отпечатък','tools':'Google Meet, Google Docs и Doodle','roles':'Водещ, модератор и техническа поддръжка','fallback':'Ако видеосрещата прекъсне, ще изпратим материалите чрез ограничен линк и ще съберем въпросите писмено.'}
             for idx,(k,v) in enumerate(fields.items()):
                 request('student/edit',{'field':k,'value':v},'student',students[idx%3])
             request('student/comment',{'action':'add','body':'Да включим и пример за защита срещу фишинг.'},'student',students[1]);comment=state(0)['m2']['comments'][0]['id']
-            request('student/comment',{'action':'apply','id':comment},'student',students[2]); result=request('student/submit',{'mission':2,'payload':{}},'student',students[0]);assert result['ok'] and result['bonus']==10
-            result=request('student/submit',{'mission':3,'payload':{'slot':'tue15','tool':'Doodle','reason':'Doodle прави анкета за свободното време на гостите.'}},'student',students[0]);assert result['ok']
-            result=request('student/submit',{'mission':4,'payload':{'rights':{'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none','link':'restricted'},'risk':'Непознати могат да изтрият важни материали.'}},'student',students[0]);assert result['ok']
-            result=request('student/submit',{'mission':5,'payload':{'choices':{'webinar':'Zoom','docs':'Word Online','files':'OneDrive','time':'Doodle','ideas':'Padlet'},'reason1':'Zoom позволява онлайн конференция с видео и звук.','reason2':'Word Online позволява общо редактиране в реално време.'}},'student',students[0]);assert result['ok']
+            request('student/comment',{'action':'apply','id':comment},'student',students[2]); request('student/comment',{'action':'add','body':'Да публикуваме предварително и програмата за участниците.'},'student',students[2]); comment2=state(0)['m2']['comments'][1]['id'];request('student/comment',{'action':'apply','id':comment2},'student',students[0]); result=request('student/submit',{'mission':2,'payload':{}},'student',students[0]);assert result['ok'] and result['bonus']==10
+            result=request('student/submit',{'mission':3,'payload':{'slot':'tue15','tool':'Doodle','backup':'record','reason':'Doodle помага за събиране на възможните часове на всеки участник и предотвратява насрочване на среща, на която някой не може да присъства.'}},'student',students[0]);assert result['ok']
+            result=request('student/submit',{'mission':4,'payload':{'rights':{'organizer':'edit','teacher':'comment','visitors':'view','outsider':'none','link':'restricted'},'incident':'revoke','risk':'Ако всеки с линка има право да редактира, непознати могат да изтрият важни материали, затова премахваме публичните права и проверяваме историята на редакциите.'}},'student',students[0]);assert result['ok']
+            result=request('student/submit',{'mission':5,'payload':{'choices':{'webinar':'Zoom','docs':'Word Online','files':'OneDrive','time':'Doodle','ideas':'Padlet'},'fallback':'async','reason1':'Zoom позволява онлайн конференция с видео, звук и въпроси, а модераторът може да координира участниците.','reason2':'Word Online позволява общо редактиране в реално време, коментиране на отделни части и проследяване на версиите.'}},'student',students[0]);assert result['ok']
             done=state();assert done['team']['current']==6 and all(x is not None for x in done['team']['digits'])
             full=''.join(done['team']['digits']); assert request('student/unlock',{'code':full},'student',students[0])['ok']
             final=state();assert final['team']['finished_at'] is not None

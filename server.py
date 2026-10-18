@@ -307,6 +307,33 @@ class Handler(BaseHTTPRequestHandler):
                         if not (1<=len(name)<=28):fail('Невалидно име.')
                         t['name']=name;save();return {'ok':True}
                 fail('Отборът не е намерен.',404)
+            if path=='/api/teacher/remove' and method=='POST':
+                teacher_key(self.headers);s=get_session()
+                for t in s['teams']:
+                    if t['id']!=p.get('team_id'):continue
+                    member=next((x for x in t['players'] if x['id']==p.get('player_id')),None)
+                    if not member:fail('Участникът не е намерен.',404)
+                    t['players'].remove(member)
+                    # Clues are tied to contiguous indices; redistribute after removal.
+                    for i,x in enumerate(t['players']):x['slot']=i
+                    save();return {'ok':True,'removed':member['nickname']}
+                fail('Отборът не е намерен.',404)
+            if path=='/api/teacher/grade' and method=='POST':
+                teacher_key(self.headers);s=get_session()
+                mission=p.get('mission');points=p.get('review_points')
+                if type(mission)!=int or not 1<=mission<=5:fail('Невалидна мисия.')
+                if type(points)!=int or points not in (0,10,20,30,40):
+                    fail('Оценката е 0, 10, 20, 30 или 40 точки.')
+                for t in s['teams']:
+                    if t['id']!=p.get('team_id'):continue
+                    a=t['answers'].get(str(mission))
+                    if not a or a.get('skipped'):fail('Мисията не е завършена.')
+                    if 'auto_points' not in a:fail('Тази мисия е завършена по старата точкова система и няма рубрика.')
+                    a['review_points']=points;a['reviewed']=True
+                    a['points']=min(100,a['auto_points']+points)
+                    t['score']=sum(x['points'] for x in t['answers'].values())
+                    save();return {'ok':True,'mission_points':a['points'],'score':t['score']}
+                fail('Отборът не е намерен.',404)
             if path=='/api/teacher/skip' and method=='POST':
                 teacher_key(self.headers);s=get_session()
                 for t in s['teams']:

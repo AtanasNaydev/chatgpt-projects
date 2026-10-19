@@ -9,6 +9,8 @@
   const root=document.getElementById('app');
   let missions=[], student=null, feedback=null, showHint=false, timer=null, teacherSnapshot=null, teacherSessionId=localStorage.getItem('digital8_selected_session')||'';
   const tokenKey='digital8_token', codeKey='digital8_code', authKey='digital8_teacher_auth';
+  const teamNames=['Пазители','Създатели','Изследователи','Медиатори'];
+  const challenges=window.DIGITAL8_TEAM_CHALLENGES||[];
   const safe=(s)=>String(s==null?'':s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const qs=(k)=>new URLSearchParams(location.search).get(k);
   const $=(selector)=>document.querySelector(selector);
@@ -60,7 +62,21 @@
   function errorPage(msg,back){root.innerHTML='<div class="narrow">'+head()+'<section class="panel"><h2>Неуспешна връзка</h2><p>'+safe(msg)+'</p>'+btn('Назад','back','primary')+'</section></div>';bind('[data-action="back"]',()=>nav(back||'/'))}
   function join(){
     const code=(qs('join')||'').trim().toUpperCase();
-    root.innerHTML='<div class="narrow">'+head('ВХОД ЗА УЧЕНИК')+'<section class="panel"><span class="badge">НОВА МИСИЯ</span><h2 style="margin-top:18px">Присъедини се</h2><p class="muted">Въведи кода от интерактивната дъска. За име използвай псевдоним, не истинско име, имейл или телефон.</p><form id="joinform"><div class="formrow"><label for="code">Код на играта</label><input id="code" maxlength="6" required autocomplete="off" value="'+safe(code)+'" placeholder="Напр. F5TS67" autocapitalize="characters"></div><div class="formrow"><label for="nick">Псевдоним</label><input id="nick" minlength="2" maxlength="22" required autocomplete="off" placeholder="Напр. КодМайстор"></div><button class="btn primary full" type="submit">Присъедини се →</button></form></section>'+foot()+'</div>';
+    root.innerHTML='<div class="narrow">'+head('ВХОД ЗА УЧЕНИК')+'<section class="panel"><span class="badge">НОВА МИСИЯ</span><h2 style="margin-top:18px">Присъедини се</h2><p class="muted">Въведи кода от интерактивната дъска. За име използвай псевдоним, не истинско име, имейл или телефон.</p><form id="joinform"><div class="formrow"><label for="code">Код на играта</label><input id="code" maxlength="6" required autocomplete="off" value="'+safe(code)+'" placeholder="Напр. F5TS67" autocapitalize="characters"></div><div class="formrow"><label for="nick">Псевдоним</label><input id="nick" minlength="2" maxlength="22" required autocomplete="off" placeholder="Напр. КодМайстор"></div><div class="formrow" id="team-row" hidden><label for="team-select">Избери отбора си</label><select id="team-select" class="native-select"><option value="">-- Избери отбор --</option>'+teamNames.map(t=>'<option value="'+safe(t)+'">'+safe(t)+'</option>').join('')+'</select><p class="tiny">Ще обсъждате общи решения с останалите от отбора, като всеки играе от своя телефон.</p></div><p id="join-mode" class="tiny" aria-live="polite"></p><button class="btn primary full" type="submit">Присъедини се →</button></form></section>'+foot()+'</div>';
+    let mode=null;let checkSequence=0;
+    async function checkTeamMode(){
+      const value=$('#code').value.trim().toUpperCase(),seq=++checkSequence;
+      if(value.length!==6){$('#team-row').hidden=true;$('#join-mode').textContent='Въведи 6-символен код';mode=null;return}
+      try{
+        const data=await rpc('session_preview',{p_code:value});
+        if(seq!==checkSequence)return;
+        mode=data;$('#team-row').hidden=!data.team_mode;
+        $('#join-mode').textContent=data.team_mode?'👥 Отборна игра — избери отбор.':'◎ Самостоятелна игра';
+      }catch(err){if(seq!==checkSequence)return;mode=null;$('#team-row').hidden=true;$('#join-mode').textContent=err.message}
+    }
+    $('#code').addEventListener('input',()=>{mode=null;$('#team-row').hidden=true});
+    $('#code').addEventListener('blur',checkTeamMode);
+    if(code.length===6)checkTeamMode();
     $('#joinform').addEventListener('submit',async(e)=>{
       e.preventDefault();const inp=$('#code').value.trim().toUpperCase();const nick=$('#nick').value.trim();
       if(!/^[A-Z2-9]{6}$/.test(inp)){toast('Кодът трябва да е от 6 символа');return}
@@ -72,7 +88,10 @@
           try{await state();nav('/?play=1');return}catch(e){localStorage.removeItem(tokenKey)}
         }
         const arr=new Uint8Array(32);crypto.getRandomValues(arr);const t=Array.from(arr).map(x=>x.toString(16).padStart(2,'0')).join('');
-        await rpc('student_join',{p_code:inp,p_nickname:nick,p_token:t});
+        const meta=mode&&$('#code').value.trim().toUpperCase()===inp?mode:await rpc('session_preview',{p_code:inp});
+        const team=meta.team_mode?$('#team-select').value:null;
+        if(meta.team_mode&&!team)throw Error('Първо избери своя отбор');
+        await rpc('student_join_v2',{p_code:inp,p_nickname:nick,p_token:t,p_team:team});
         localStorage.setItem(tokenKey,t);localStorage.setItem(codeKey,inp);nav('/?play=1');
       }catch(err){toast(err.message)}finally{submit.disabled=false;submit.textContent='Присъедини се →'}
     });

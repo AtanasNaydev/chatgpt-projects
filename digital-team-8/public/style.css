@@ -469,3 +469,23 @@ input::placeholder{color:#929bb0}
   .team-icon{width:31px;height:31px;font-size:16px}
   .create-dialog{padding:19px}
 }
+
+/* Large projection-ready join panel shown only while the class is in the lobby. */
+.display-join{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:28px;
+  margin:24px 0;
+  padding:25px 32px;
+  background:linear-gradient(120deg,#f0ebff,#fff6ef);
+  border:1px solid #dfd7f1;
+}
+.display-code-wrap h2{margin:10px 0 8px}
+.display-code-wrap .code{font-size:clamp(24px,3vw,40px)}
+.big-qr{display:grid;place-items:center;border:1px solid #e2d8f0;background:white;border-radius:18px;padding:16px;min-height:276px;min-width:276px}
+.big-qr img,.big-qr canvas{max-width:100%;height:auto}
+@media(max-width:750px){
+ .display-join{flex-direction:column;align-items:stretch;padding:20px}
+ .big-qr{min-height:0;min-width:0}
+}

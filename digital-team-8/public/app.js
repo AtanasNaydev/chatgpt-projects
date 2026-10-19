@@ -183,6 +183,13 @@
   function renderTeamCheckpoint(mission){
     clearInterval(timer);timer=null;
     const task=challenges.find(x=>x.mission===mission);
+    const roles=[
+      {name:'Координатор',tip:'Дай възможност на всеки да изрази мнение и насочи отбора към общо решение.'},
+      {name:'Проверяващ',tip:'Посочи какви рискове и пропуски откриваш във вариантите.'},
+      {name:'Редактор',tip:'Обобщи с едно изречение защо избраният подход е подходящ.'},
+      {name:'Говорител',tip:'Бъди готов да представиш аргументите на отбора пред класа.'}
+    ];
+    const role=roles[((Number(student.team_index)||0)+mission-1)%4];
     if(!task){teamAfterVote=0;return finale()}
     const myVote=(student.team_votes||[]).find(x=>x.mission===mission);
     const counts=(student.team_tallies||[]).filter(x=>x.mission===mission);
@@ -195,7 +202,7 @@
     }).join('');
     root.innerHTML='<div class="narrow">'+head('ОТБОР: '+safe(student.team_name))+
       '<section class="team-checkpoint panel"><span class="badge">🤝 СЪВМЕСТНА МИСИЯ · '+mission+'/5</span><h2 style="margin-top:15px">'+safe(task.title)+'</h2>'+
-      '<p class="muted">'+safe(task.context)+'</p><div class="team-instruction">Обсъдете трите варианта с отбора си, преди всеки да гласува от телефона си. Търсете общо решение, не най-бърз отговор.</div>'+
+      '<p class="muted">'+safe(task.context)+'</p><div class="team-role"><strong>Твоята роля: '+safe(role.name)+'</strong><p>'+safe(role.tip)+'</p></div><div class="team-instruction">Обсъдете трите варианта с отбора си, преди всеки да гласува от телефона си. Търсете общо решение, не най-бърз отговор.</div>'+
       '<h3>'+safe(task.prompt)+'</h3><div class="choice-list">'+options+'</div>'+
       (myVote?'<div class="feedback"><strong>Гласът ти е отчетен.</strong><p>'+sum+' от '+participants+' участници в отбора са гласували за тази мисия. Това е общо екипно решение и не променя индивидуалните ти точки.</p></div>'+
           '<div class="team-tally"><h3>Изборите на отбора</h3>'+task.options.map(o=>{const val=Number((counts.find(c=>c.choice_id===o.id)||{}).votes||0);return '<div class="progressline"><div class="line-head"><strong>Вариант '+o.id+'</strong><span>'+val+' гласа</span></div><div class="bar"><span style="width:'+(sum?Math.round(val/sum*100):0)+'%"></span></div></div>'}).join('')+'</div>'+

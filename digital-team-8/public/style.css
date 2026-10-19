@@ -313,3 +313,159 @@ input::placeholder{color:#929bb0}
 @media(prefers-reduced-motion:reduce){
   .mission-item:hover,.choice:hover{transform:none}
 }
+
+
+/* Version 2.2 — team collaboration, voting, teacher session setup */
+[hidden]{display:none!important}
+.native-select{
+  display:block;
+  width:100%;
+  min-height:50px;
+  padding:12px 14px;
+  font:700 15px Manrope,system-ui,sans-serif;
+  background:#fff;
+  color:#272944;
+  border:1px solid #ced5e3;
+  border-radius:12px;
+}
+.join-preview{margin:9px 0 17px;color:#626b82}
+.team-inline{
+  background:#f0edff;
+  color:#55449f;
+  border:1px solid #ded6fc;
+  border-radius:12px;
+  padding:9px 13px;
+  display:inline-block;
+  font-weight:800;
+  font-size:14px;
+  margin:9px 0;
+}
+.small-status{
+  display:inline-block;
+  color:#3a866d;
+  background:#edf9f2;
+  padding:8px 11px;
+  border:1px solid #b7e2c8;
+  border-radius:11px;
+  font-weight:800;
+  font-size:13px;
+}
+.team-checkpoint{border-color:#c6bdf0;background:linear-gradient(155deg,#ffffff 0%,#fcfaff 100%)}
+.team-checkpoint .badge{color:#5940a1}
+.team-instruction{
+  background:#eeebff;
+  border-left:4px solid #8164c9;
+  border-radius:0 10px 10px 0;
+  color:#3f376d;
+  padding:14px;
+  margin:19px 0;
+  font-size:14px;
+  font-weight:700;
+}
+.team-ballot .vote-count{
+  font-size:12px;
+  color:#6459a5;
+  white-space:nowrap;
+  margin-left:auto;
+}
+.choice.team-selected{
+  border:2px solid #765fca;
+  background:#f1ebff;
+  color:#392e78;
+  opacity:1;
+}
+.team-tally{
+  border:1px solid #e5e1f2;
+  background:#f9f7fe;
+  border-radius:15px;
+  padding:15px;
+  margin:17px 0;
+}
+.team-card-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-top:20px;
+}
+.team-card{
+  background:#faf9ff;
+  border:1px solid #e8e3fa;
+  padding:16px;
+  border-radius:17px;
+  min-width:0;
+}
+.team-card:nth-child(2){background:#fff7f2;border-color:#f2dfd3}
+.team-card:nth-child(3){background:#f2f9fe;border-color:#daeaf7}
+.team-card:nth-child(4){background:#f2f9f4;border-color:#d5ebdb}
+.team-card-head{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#40365b;
+  margin-bottom:13px;
+}
+.team-icon{
+  display:inline-grid;
+  place-items:center;
+  border-radius:12px;
+  background:white;
+  width:38px;height:38px;
+  font-size:20px;
+  flex-shrink:0;
+}
+.team-metrics{
+  display:flex;
+  justify-content:space-between;
+  gap:5px;
+  flex-wrap:wrap;
+  color:#566078;
+  font-size:11px;
+  font-weight:700;
+  margin:8px 0;
+}
+.create-dialog{
+  width:min(500px,calc(100vw - 22px));
+  color:var(--text);
+  background:white;
+  border:1px solid #d6d2e5;
+  border-radius:23px;
+  padding:25px;
+  box-shadow:0 30px 75px #30325355;
+}
+.create-dialog::backdrop{background:#25264291;backdrop-filter:blur(3px)}
+.create-session-form h2{margin:0 0 20px}
+.team-modes{
+  border:0;
+  margin:14px 0 22px;
+  padding:0;
+  display:grid;
+  gap:10px;
+}
+.team-modes legend{font-size:13px;font-weight:800;color:#3c4160;margin-bottom:10px}
+.mode-choice{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:#fbfbff;
+  border:1px solid #e3e1ed;
+  border-radius:14px;
+  padding:13px;
+  cursor:pointer;
+}
+.mode-choice:has(input:checked){
+  border-color:#a99bde;
+  background:#f2efff;
+  box-shadow:0 0 0 2px #a99bde25;
+}
+.mode-choice input{width:19px;height:19px;flex:none}
+.mode-choice span{display:grid;gap:3px}
+.mode-choice b{font-size:14px}
+.mode-choice small{font-size:12px;color:#667089;line-height:1.5}
+@media(max-width:950px){.team-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){
+  .team-card-grid{grid-template-columns:1fr 1fr;gap:9px}
+  .team-card{padding:11px}
+  .team-card-head{font-size:12px;gap:5px}
+  .team-icon{width:31px;height:31px;font-size:16px}
+  .create-dialog{padding:19px}
+}

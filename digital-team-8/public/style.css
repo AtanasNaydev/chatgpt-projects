@@ -504,3 +504,16 @@ input::placeholder{color:#929bb0}
 .teacher-help summary:focus-visible{outline:3px solid #e2a342;outline-offset:4px}
 .teacher-help .help-content{margin-top:16px;border-top:1px solid #e5e5ed;padding-top:15px}
 .teacher-help .help-content p{font-size:13px;color:#4f5c75;margin-bottom:8px}
+
+.team-role{
+  display:grid;
+  gap:5px;
+  background:#fff6ec;
+  border:1px solid #f1d7bf;
+  border-radius:13px;
+  color:#865333;
+  padding:13px 15px;
+  margin:12px 0 16px;
+}
+.team-role strong{font-size:14px}
+.team-role p{font-size:13px;margin:0;color:#785940}

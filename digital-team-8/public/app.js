@@ -7,7 +7,7 @@
   const BASE=(CFG.supabaseUrl||'').replace(/\/$/,'');
   const KEY=CFG.publishableKey||'';
   const root=document.getElementById('app');
-  let missions=[], student=null, feedback=null, showHint=false, timer=null, teacherSessionId=localStorage.getItem('digital8_selected_session')||'';
+  let missions=[], student=null, feedback=null, showHint=false, timer=null, teacherSnapshot=null, teacherSessionId=localStorage.getItem('digital8_selected_session')||'';
   const tokenKey='digital8_token', codeKey='digital8_code', authKey='digital8_teacher_auth';
   const safe=(s)=>String(s==null?'':s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const qs=(k)=>new URLSearchParams(location.search).get(k);
@@ -77,9 +77,18 @@
       }catch(err){toast(err.message)}finally{submit.disabled=false;submit.textContent='Присъедини се →'}
     });
   }
-  function startPolling(fn,ms){clearInterval(timer);timer=setInterval(fn,ms)}
+  function startPolling(fn,ms){
+    clearInterval(timer);
+    let busy=false;
+    timer=setInterval(async()=>{
+      if(busy || document.hidden) return;
+      busy=true;
+      try{await fn()}catch(e){console.warn('Временен проблем със синхронизацията:',e)}
+      finally{busy=false}
+    },ms);
+  }
   function waiting(st){
-    root.innerHTML='<div class="narrow">'+head('ЧАКАЛНЯ')+'<section class="panel center"><span class="badge">ПРИСЪЕДИНЕН УЧАСТНИК</span><div class="wait-icon">⌛</div><h2>Очакваме старт</h2><p class="lead">Здравей, <b class="accent">'+safe(st.nickname)+'</b>!</p><p>Ти си в играта с код <strong>'+safe(st.code)+'</strong>. Изчакай учителят да стартира мисията.</p><p class="tiny">Страницата ще се обнови автоматично.</p></section>'+foot()+'</div>';
+    root.innerHTML='<div class="narrow">'+head('ЧАКАЛНЯ')+'<section class="panel center"><span class="badge">ПРИСЪЕДИНЕН УЧАСТНИК</span><div class="wait-icon">⌛</div><h2>Очакваме старт</h2><p class="lead">Здравей, <b class="accent">'+safe(st.nickname)+'</b>!</p><p>Ти си в играта с код <strong>'+safe(st.code)+'</strong>. Изчакай учителят да стартира мисията.</p><p class="tiny">Играта ще започне автоматично, без презареждане.</p></section>'+foot()+'</div>';
     startPolling(async()=>{try{const s=await state();if(s.status!=='lobby') {student=s;renderPlay()}}catch(e){toast(e.message)}},2800);
   }
   function paused(st){
@@ -190,10 +199,88 @@
       bind('[data-action="start"]',()=>changeStatus(sel.id,'active'));
       bind('[data-action="pause"]',()=>changeStatus(sel.id,'paused'));
       bind('[data-action="end"]',()=>{if(confirm('Сигурни ли сте, че искате да приключите сесията?'))changeStatus(sel.id,'ended')});
-      bind('[data-action="csv"]',()=>downloadCSV(sel,rows,answers));
+      bind('[data-action="csv"]',()=>{const cur=teacherSnapshot||{sel,rows,answers};downloadCSV(cur.sel,cur.rows,cur.answers)});
       $('#sessions').addEventListener('change',e=>{teacherSessionId=e.target.value;localStorage.setItem('digital8_selected_session',teacherSessionId);teacher()});
-      startPolling(()=>{if(qs('teacher')!==null)teacher()},5000);
+      teacherSnapshot={sel,rows,answers};
+       const box=$('.two .stack > .panel');if(box)box.insertAdjacentHTML('beforeend','<p id="sync-state" class="live-meta">● Данните се обновяват незабележимо</p>');
+       startPolling(()=>{if(qs('teacher')!==null && teacherSessionId===sel.id)return refreshTeacherStats(sel.id)},6000);
     }catch(err){errorPage('Учителският панел: '+err.message,'/?teacher=1')}
+  }
+
+  // Live update: never re-render the complete page just to refresh statistics.
+  function setSyncState(failed=false){
+    const el=$('#sync-state');
+    if(el)el.textContent=failed?'Временно няма връзка · нов опит след малко':'● Последна синхронизация '+new Date().toLocaleTimeString('bg-BG',{hour:'2-digit',minute:'2-digit'});
+  }
+  function updateBar(el,n,total){
+    if(!el)return;
+    const label=el.querySelector('.line-head span');
+    const fill=el.querySelector('.bar span');
+    if(label)label.textContent=n+'/'+total;
+    if(fill)fill.style.width=(total?Math.round(n/total*100):0)+'%';
+  }
+  async function refreshTeacherStats(sid){
+    const numbers=$('.two .three .stat b');
+    if(qs('teacher')===null||teacherSessionId!==sid||numbers.length<3)return;
+    try{
+      const [participants,answers]=await Promise.all([
+        db('participants','select=id,nickname,reflection,finished_at,last_seen_at&session_id=eq.'+sid),
+        db('answers','select=participant_id,mission,step,solved,points,wrong_choices&session_id=eq.'+sid)
+      ]);
+      if(qs('teacher')===null||teacherSessionId!==sid||!numbers[0].isConnected)return;
+      const rows=participants.map(p=>{
+        const as=answers.filter(a=>a.participant_id===p.id);
+        return {...p,completed:as.filter(a=>a.solved).length,total:as.reduce((v,a)=>v+Number(a.points||0),0)}
+      });
+      teacherSnapshot={sel:teacherSnapshot.sel,rows,answers};
+      const n=rows.length,avg=n?Math.round(rows.reduce((v,p)=>v+p.total,0)/n):0;
+      const overall=n?Math.round(rows.reduce((v,p)=>v+p.completed,0)/(n*20)*100):0;
+      numbers[0].textContent=n;
+      numbers[1].textContent=rows.filter(p=>p.completed===20).length;
+      numbers[2].textContent=avg;
+      const box=$('.two .stack > .panel');
+      if(box){
+        const title=box.querySelector('h3'),fill=box.querySelector('.bar span');
+        if(title)title.textContent='Общ напредък: '+overall+'%';
+        if(fill)fill.style.width=overall+'%';
+        const bars=box.querySelectorAll('.progressline');
+        missions.forEach((m,i)=>updateBar(bars[i],rows.filter(p=>p.completed>=m.id*4).length,n));
+      }
+      const list=$('.teacher-users');
+      if(list){
+        const markup=rows.length?rows.map(p=>'<div class="teacher-user"><span class="avatar">◈</span><div style="flex:1"><b>'+safe(p.nickname)+'</b><div class="tiny">'+p.completed+'/20 задачи</div></div><strong>'+p.total+' т.</strong></div>').join(''):'<p class="muted">Още няма присъединили се ученици.</p>';
+        if(list.innerHTML!==markup)list.innerHTML=markup;
+      }
+      const wrongs={};answers.forEach(a=>(a.wrong_choices||[]).forEach(c=>{const key=a.mission+'.'+a.step;wrongs[key]=(wrongs[key]||0)+1}));
+      const frequent=Object.entries(wrongs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([key,count])=>{const [mi,si]=key.split('.').map(Number);return '<li>'+safe(missions[mi-1].steps[si-1].title)+' — '+count+' грешни опита</li>'}).join('')||'<li class="muted">Все още няма регистрирани грешки.</li>';
+      const analysis=$('.two.section > .panel:nth-child(2)');
+      if(analysis){
+        const ol=analysis.querySelector('ol');
+        if(ol&&ol.innerHTML!==frequent)ol.innerHTML=frequent;
+        const refs=analysis.querySelectorAll('.fake-row b');
+        ['Поверителност','Групи','Споделени файлове','Анкети','Онлайн поведение'].forEach((name,i)=>{if(refs[i])refs[i].textContent=rows.filter(p=>p.reflection===name).length});
+      }
+      setSyncState();
+    }catch(e){setSyncState(true)}
+  }
+  async function refreshDisplayStats(sid){
+    const stats=$('.display-mode .three .stat b');
+    if(qs('display')!==sid||stats.length<3)return;
+    try{
+      const [sessions,p,a]=await Promise.all([
+        db('game_sessions','select=status&id=eq.'+encodeURIComponent(sid)),
+        db('participants','select=id&session_id=eq.'+encodeURIComponent(sid)),
+        db('answers','select=participant_id,mission,solved&session_id=eq.'+encodeURIComponent(sid))
+      ]);
+      if(qs('display')!==sid||!stats[0].isConnected||!sessions.length)return;
+      const n=p.length;
+      stats[0].textContent=n;
+      stats[1].textContent=(n?Math.round(a.filter(x=>x.solved).length/(n*20)*100):0)+'%';
+      stats[2].textContent=({lobby:'Чакалня',active:'В ход',paused:'Пауза',ended:'Край'})[sessions[0].status]||sessions[0].status;
+      const bars=$('.display-mode .progressline');
+      missions.forEach((m,i)=>updateBar(bars[i],p.filter(x=>a.filter(y=>y.participant_id===x.id&&y.solved&&y.mission<=m.id).length>=m.id*4).length,n));
+      setSyncState();
+    }catch(e){setSyncState(true)}
   }
   function progress(title,done,total){const pct=total?Math.round(done/total*100):0;return '<div class="progressline"><div class="line-head"><strong>'+safe(title)+'</strong><span>'+done+'/'+total+'</span></div><div class="bar"><span style="width:'+pct+'%"></span></div></div>'}
   function refsStats(rows){const opts=['Поверителност','Групи','Споделени файлове','Анкети','Онлайн поведение'];const counts=opts.map(x=>rows.filter(p=>p.reflection===x).length);return opts.map((x,i)=>'<div class="fake-row"><span>'+x+'</span><b>'+counts[i]+'</b></div>').join('')}
@@ -250,7 +337,8 @@
       const whoDone=(i)=>p.filter(x=>a.filter(y=>y.participant_id===x.id&&y.solved&&y.mission<=i).length>=i*4).length;
       const percentage=total?Math.round(a.filter(x=>x.solved).length/(total*20)*100):0;
       root.innerHTML='<div class="display-mode"><p class="eyebrow">8. КЛАС · ИНФОРМАЦИОННИ ТЕХНОЛОГИИ</p><h1>МИСИЯ:<br><span class="accent">ДИГИТАЛЕН ЕКИП</span></h1><p class="lead">Заедно организираме „Деня на идеите“</p><div class="three section"><div class="panel stat"><b>'+total+'</b><small>Присъединени ученици</small></div><div class="panel stat"><b>'+percentage+'%</b><small>Общ напредък</small></div><div class="panel stat"><b>'+safe(s[0].status==='lobby'?'Чакалня':s[0].status==='active'?'В ход':s[0].status==='paused'?'Пауза':'Край')+'</b><small>Състояние</small></div></div><section class="panel"><h2>Напредък по мисии</h2>'+missions.map(m=>progress(m.id+'. '+m.title,whoDone(m.id),total)).join('')+'</section><p class="center tiny section">Показва се само общият напредък. Индивидуални имена и оценки не се прожектират.</p></div>';
-      startPolling(()=>{if(qs('display')!==null)display()},4000);
+      const box=$('.display-mode > section.panel');if(box)box.insertAdjacentHTML('beforeend','<p id="sync-state" class="live-meta">● Данните се обновяват незабележимо</p>');
+       startPolling(()=>{if(qs('display')===id)return refreshDisplayStats(id)},6000);
     }catch(e){errorPage(e.message,'/?teacher=1')}
   }
   async function render(){

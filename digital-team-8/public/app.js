@@ -358,6 +358,8 @@
       ]);
       if(qs('display')!==sid||!stats[0].isConnected||!sessions.length)return;
       const n=p.length;
+      const joinEl=$('#display-join');
+      if(joinEl)joinEl.hidden=sessions[0].status!=='lobby';
       stats[0].textContent=n;
       stats[1].textContent=(n?Math.round(a.filter(x=>x.solved).length/(n*20)*100):0)+'%';
       stats[2].textContent=({lobby:'Чакалня',active:'В ход',paused:'Пауза',ended:'Край'})[sessions[0].status]||sessions[0].status;
@@ -441,7 +443,8 @@
       const completed=(id)=>a.filter(x=>x.mission===id&&x.solved).length;
       const whoDone=(i)=>p.filter(x=>a.filter(y=>y.participant_id===x.id&&y.solved&&y.mission<=i).length>=i*4).length;
       const percentage=total?Math.round(a.filter(x=>x.solved).length/(total*20)*100):0;
-      root.innerHTML='<div class="display-mode"><p class="eyebrow">8. КЛАС · ИНФОРМАЦИОННИ ТЕХНОЛОГИИ</p><h1>МИСИЯ:<br><span class="accent">ДИГИТАЛЕН ЕКИП</span></h1><p class="lead">Заедно организираме „Деня на идеите“</p><div class="three section"><div class="panel stat"><b>'+total+'</b><small>Присъединени ученици</small></div><div class="panel stat"><b>'+percentage+'%</b><small>Общ напредък</small></div><div class="panel stat"><b>'+safe(s[0].status==='lobby'?'Чакалня':s[0].status==='active'?'В ход':s[0].status==='paused'?'Пауза':'Край')+'</b><small>Състояние</small></div></div><section class="panel"><h2>Напредък по мисии</h2>'+missions.map(m=>progress(m.id+'. '+m.title,whoDone(m.id),total)).join('')+'</section><p class="center tiny section">Показва се само общият напредък. Индивидуални имена и оценки не се прожектират.</p></div>';
+      root.innerHTML='<div class="display-mode"><p class="eyebrow">8. КЛАС · ИНФОРМАЦИОННИ ТЕХНОЛОГИИ</p><h1>МИСИЯ:<br><span class="accent">ДИГИТАЛЕН ЕКИП</span></h1><p class="lead">Заедно организираме „Деня на идеите“</p><div id="display-join" class="display-join panel" '+(s[0].status==='lobby'?'':'hidden')+'><div class="display-code-wrap"><p class="eyebrow">СКАНИРАЙ И ИГРАЙ</p><h2>Влез от своя телефон</h2><p class="muted">Използвай QR кода или въведи кода на сесията.</p><div class="code">'+safe(s[0].code)+'</div></div><div class="big-qr" id="display-qr"></div></div><div class="three section"><div class="panel stat"><b>'+total+'</b><small>Присъединени ученици</small></div><div class="panel stat"><b>'+percentage+'%</b><small>Общ напредък</small></div><div class="panel stat"><b>'+safe(s[0].status==='lobby'?'Чакалня':s[0].status==='active'?'В ход':s[0].status==='paused'?'Пауза':'Край')+'</b><small>Състояние</small></div></div><section class="panel"><h2>Напредък по мисии</h2>'+missions.map(m=>progress(m.id+'. '+m.title,whoDone(m.id),total)).join('')+'</section><p class="center tiny section">Показва се само общият напредък. Индивидуални имена и оценки не се прожектират.</p></div>';
+      if(window.QRCode&&$('#display-qr')){new window.QRCode($('#display-qr'),{text:joinLink(s[0].code),width:244,height:244,colorDark:'#262546',colorLight:'#ffffff'})}
       if(s[0].team_mode){const v=p.map(item=>({...item,completed:a.filter(x=>x.participant_id===item.id&&x.solved).length,total:a.filter(x=>x.participant_id===item.id).reduce((v,x)=>v+Number(x.points||0),0)}));const displayCard=$('.display-mode > section.panel');if(displayCard)displayCard.insertAdjacentHTML('afterend','<section class="panel section"><h2>Отборен напредък</h2><div id="display-team-cards">'+teamStatsMarkup(v,voting)+'</div></section>')}
       const box=$('.display-mode > section.panel');if(box)box.insertAdjacentHTML('beforeend','<p id="sync-state" class="live-meta">● Данните се обновяват незабележимо</p>');
        startPolling(()=>{if(qs('display')===id)return refreshDisplayStats(id)},6000);

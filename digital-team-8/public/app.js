@@ -354,7 +354,7 @@
       const [sessions,p,a]=await Promise.all([
         db('game_sessions','select=status&id=eq.'+encodeURIComponent(sid)),
         db('participants','select=id,team_name&session_id=eq.'+encodeURIComponent(sid)),
-        db('answers','select=participant_id,mission,solved&session_id=eq.'+encodeURIComponent(sid))
+        db('answers','select=participant_id,mission,solved,points&session_id=eq.'+encodeURIComponent(sid))
       ]);
       if(qs('display')!==sid||!stats[0].isConnected||!sessions.length)return;
       const n=p.length;
@@ -364,7 +364,7 @@
       const bars=$('.display-mode .progressline');
       missions.forEach((m,i)=>updateBar(bars[i],p.filter(x=>a.filter(y=>y.participant_id===x.id&&y.solved&&y.mission<=m.id).length>=m.id*4).length,n));
       const panel=$('#display-team-cards');
-      if(panel){const votes=await db('team_votes','select=team_name,mission,choice_id&session_id=eq.'+sid);const rows=p.map(item=>({...item,completed:a.filter(y=>y.participant_id===item.id&&y.solved).length,total:0}));panel.innerHTML=teamStatsMarkup(rows,votes)}
+      if(panel){const votes=await db('team_votes','select=team_name,mission,choice_id&session_id=eq.'+sid);const rows=p.map(item=>({...item,completed:a.filter(y=>y.participant_id===item.id&&y.solved).length,total:a.filter(y=>y.participant_id===item.id).reduce((v,y)=>v+Number(y.points||0),0)}));panel.innerHTML=teamStatsMarkup(rows,votes)}
       setSyncState();
     }catch(e){setSyncState(true)}
   }
@@ -435,14 +435,14 @@
       const s=await db('game_sessions','select=*&id=eq.'+encodeURIComponent(id));
       if(!s||!s.length)throw Error('Сесията не съществува или нямате право да я отворите');
       const p=await db('participants','select=id,team_name&session_id=eq.'+encodeURIComponent(id));
-      const a=await db('answers','select=participant_id,mission,solved&session_id=eq.'+encodeURIComponent(id));
+      const a=await db('answers','select=participant_id,mission,solved,points&session_id=eq.'+encodeURIComponent(id));
       const voting=s[0].team_mode?await db('team_votes','select=team_name,mission,choice_id&session_id=eq.'+encodeURIComponent(id)):[];
       const total=p.length;
       const completed=(id)=>a.filter(x=>x.mission===id&&x.solved).length;
       const whoDone=(i)=>p.filter(x=>a.filter(y=>y.participant_id===x.id&&y.solved&&y.mission<=i).length>=i*4).length;
       const percentage=total?Math.round(a.filter(x=>x.solved).length/(total*20)*100):0;
       root.innerHTML='<div class="display-mode"><p class="eyebrow">8. КЛАС · ИНФОРМАЦИОННИ ТЕХНОЛОГИИ</p><h1>МИСИЯ:<br><span class="accent">ДИГИТАЛЕН ЕКИП</span></h1><p class="lead">Заедно организираме „Деня на идеите“</p><div class="three section"><div class="panel stat"><b>'+total+'</b><small>Присъединени ученици</small></div><div class="panel stat"><b>'+percentage+'%</b><small>Общ напредък</small></div><div class="panel stat"><b>'+safe(s[0].status==='lobby'?'Чакалня':s[0].status==='active'?'В ход':s[0].status==='paused'?'Пауза':'Край')+'</b><small>Състояние</small></div></div><section class="panel"><h2>Напредък по мисии</h2>'+missions.map(m=>progress(m.id+'. '+m.title,whoDone(m.id),total)).join('')+'</section><p class="center tiny section">Показва се само общият напредък. Индивидуални имена и оценки не се прожектират.</p></div>';
-      if(s[0].team_mode){const v=p.map(item=>({...item,completed:a.filter(x=>x.participant_id===item.id&&x.solved).length,total:0}));const displayCard=$('.display-mode > section.panel');if(displayCard)displayCard.insertAdjacentHTML('afterend','<section class="panel section"><h2>Отборен напредък</h2><div id="display-team-cards">'+teamStatsMarkup(v,voting)+'</div></section>')}
+      if(s[0].team_mode){const v=p.map(item=>({...item,completed:a.filter(x=>x.participant_id===item.id&&x.solved).length,total:a.filter(x=>x.participant_id===item.id).reduce((v,x)=>v+Number(x.points||0),0)}));const displayCard=$('.display-mode > section.panel');if(displayCard)displayCard.insertAdjacentHTML('afterend','<section class="panel section"><h2>Отборен напредък</h2><div id="display-team-cards">'+teamStatsMarkup(v,voting)+'</div></section>')}
       const box=$('.display-mode > section.panel');if(box)box.insertAdjacentHTML('beforeend','<p id="sync-state" class="live-meta">● Данните се обновяват незабележимо</p>');
        startPolling(()=>{if(qs('display')===id)return refreshDisplayStats(id)},6000);
     }catch(e){errorPage(e.message,'/?teacher=1')}

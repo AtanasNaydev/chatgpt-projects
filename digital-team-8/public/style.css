@@ -489,3 +489,18 @@ input::placeholder{color:#929bb0}
  .display-join{flex-direction:column;align-items:stretch;padding:20px}
  .big-qr{min-height:0;min-width:0}
 }
+
+/* Optional teacher facilitation guide */
+.teacher-help{margin:24px 0}
+.teacher-help summary{
+  cursor:pointer;
+  color:#5544a5;
+  font-size:14px;
+  font-weight:800;
+  list-style-position:inside;
+  padding:2px;
+}
+.teacher-help summary:hover{color:#d16b6a}
+.teacher-help summary:focus-visible{outline:3px solid #e2a342;outline-offset:4px}
+.teacher-help .help-content{margin-top:16px;border-top:1px solid #e5e5ed;padding-top:15px}
+.teacher-help .help-content p{font-size:13px;color:#4f5c75;margin-bottom:8px}

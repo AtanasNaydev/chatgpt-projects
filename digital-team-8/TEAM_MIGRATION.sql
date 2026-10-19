@@ -105,7 +105,7 @@ CREATE OR REPLACE FUNCTION public.student_state(p_token text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO public,extensions,pg_temp AS $fn$
 DECLARE pid uuid; sid uuid; nn text; team text; refl text; st text; sc text; session_title text; mode boolean;
-        rows_json jsonb; own_votes jsonb; tallies jsonb; members int; cnt int; total int;
+        rows_json jsonb; own_votes jsonb; tallies jsonb; members int; cnt int; total int; team_index int;
 BEGIN
  SELECT p.id,p.session_id,p.nickname,p.team_name,p.reflection INTO pid,sid,nn,team,refl
  FROM public.participant_secrets ps JOIN public.participants p ON p.id=ps.participant_id
@@ -120,16 +120,17 @@ BEGIN
  INTO own_votes FROM public.team_votes WHERE participant_id=pid;
  IF mode AND team IS NOT NULL THEN
    SELECT count(*) INTO members FROM public.participants WHERE session_id=sid AND team_name=team;
+   SELECT ranked.position INTO team_index FROM (SELECT id,(row_number() OVER (ORDER BY created_at,id)-1)::int AS position FROM public.participants WHERE session_id=sid AND team_name=team) ranked WHERE ranked.id=pid;
    SELECT coalesce(jsonb_agg(jsonb_build_object('mission',v.mission,'choice_id',v.choice_id,'votes',v.cnt)),'[]'::jsonb)
    INTO tallies FROM (SELECT mission,choice_id,count(*)::int cnt FROM public.team_votes
      WHERE session_id=sid AND team_name=team GROUP BY mission,choice_id ORDER BY mission,choice_id) v;
  ELSE
-   members:=0;tallies:='[]'::jsonb;
+   members:=0;team_index:=0;tallies:='[]'::jsonb;
  END IF;
  UPDATE public.participants SET last_seen_at=now() WHERE id=pid AND last_seen_at<now()-interval '45 seconds';
  RETURN jsonb_build_object('status',st,'code',sc,'title',session_title,'nickname',nn,'completed',cnt,'total',total,
    'answers',rows_json,'reflection',refl,'team_mode',mode,'team_name',team,
-   'team_votes',own_votes,'team_tallies',tallies,'team_members',members);
+   'team_votes',own_votes,'team_tallies',tallies,'team_members',members,'team_index',team_index);
 END $fn$;
 REVOKE ALL ON FUNCTION public.student_state(text) FROM public;
 GRANT EXECUTE ON FUNCTION public.student_state(text) TO anon,authenticated;

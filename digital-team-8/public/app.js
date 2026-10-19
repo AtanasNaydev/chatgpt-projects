@@ -7,7 +7,7 @@
   const BASE=(CFG.supabaseUrl||'').replace(/\/$/,'');
   const KEY=CFG.publishableKey||'';
   const root=document.getElementById('app');
-  let missions=[], student=null, feedback=null, showHint=false, timer=null, teacherSnapshot=null, teacherSessionId=localStorage.getItem('digital8_selected_session')||'';
+  let missions=[], student=null, feedback=null, showHint=false, timer=null, teamAfterVote=0, teacherSnapshot=null, teacherSessionId=localStorage.getItem('digital8_selected_session')||'';
   const tokenKey='digital8_token', codeKey='digital8_code', authKey='digital8_teacher_auth';
   const teamNames=['Пазители','Създатели','Изследователи','Медиатори'];
   const challenges=window.DIGITAL8_TEAM_CHALLENGES||[];
@@ -146,6 +146,12 @@
     if(student.status==='lobby')return waiting(student);
     if(student.status==='paused')return paused(student);
     if(student.status==='ended'&&student.completed<20){return endEarly(student)}
+    const completed=Number(student.completed)||0;
+    const completedMission=completed>0&&completed%4===0?completed/4:0;
+    const voted=(student.team_votes||[]).some(v=>v.mission===completedMission);
+    if(student.team_mode&&student.team_name&&completedMission&&(!voted||teamAfterVote===completedMission)&&!feedback){
+      return renderTeamCheckpoint(completedMission);
+    }
     const c=current();if(!c)return finale();
     const m=c.m,s=c.s; const rec=(student.answers||[]).find(x=>x.mission===m.id&&x.step===s.n)||{};
     const pct=Math.round((Number(student.completed)||0)/20*100);
@@ -173,15 +179,54 @@
     bind('[data-action="continue"]',()=>{feedback=null;showHint=false;renderPlay()});
     startPolling(async()=>{try{const next=await state();if(next.status!==student.status){student=next;renderPlay()}else student=next}catch(e){}},10000);
   }
+
+  function renderTeamCheckpoint(mission){
+    clearInterval(timer);timer=null;
+    const task=challenges.find(x=>x.mission===mission);
+    if(!task){teamAfterVote=0;return finale()}
+    const myVote=(student.team_votes||[]).find(x=>x.mission===mission);
+    const counts=(student.team_tallies||[]).filter(x=>x.mission===mission);
+    const participants=Number(student.team_members||0);
+    const sum=counts.reduce((v,x)=>v+Number(x.votes||0),0);
+    const options=task.options.map((o,i)=>{
+      const votedFor=myVote&&myVote.choice_id===o.id;
+      const count=counts.find(c=>c.choice_id===o.id);
+      return '<button class="choice team-ballot '+(votedFor?'team-selected':'')+'" data-team-vote="'+safe(o.id)+'" '+(myVote?'disabled':'')+'><span class="letter">'+o.id+'</span><span>'+safe(o.label)+'</span>'+(myVote?'<b class="vote-count">'+(count?count.votes:0)+' гл.</b>':'')+'</button>';
+    }).join('');
+    root.innerHTML='<div class="narrow">'+head('ОТБОР: '+safe(student.team_name))+
+      '<section class="team-checkpoint panel"><span class="badge">🤝 СЪВМЕСТНА МИСИЯ · '+mission+'/5</span><h2 style="margin-top:15px">'+safe(task.title)+'</h2>'+
+      '<p class="muted">'+safe(task.context)+'</p><div class="team-instruction">Обсъдете трите варианта с отбора си, преди всеки да гласува от телефона си. Търсете общо решение, не най-бърз отговор.</div>'+
+      '<h3>'+safe(task.prompt)+'</h3><div class="choice-list">'+options+'</div>'+
+      (myVote?'<div class="feedback"><strong>Гласът ти е отчетен.</strong><p>'+sum+' от '+participants+' участници в отбора са гласували за тази мисия. Това е общо екипно решение и не променя индивидуалните ти точки.</p></div>'+
+          '<div class="team-tally"><h3>Изборите на отбора</h3>'+task.options.map(o=>{const val=Number((counts.find(c=>c.choice_id===o.id)||{}).votes||0);return '<div class="progressline"><div class="line-head"><strong>Вариант '+o.id+'</strong><span>'+val+' гласа</span></div><div class="bar"><span style="width:'+(sum?Math.round(val/sum*100):0)+'%"></span></div></div>'}).join('')+'</div>'+
+          '<div class="actions">'+btn(mission===5?'Към финала →':'Следваща мисия →','team-next','primary full')+'</div>':
+          '<p class="tiny">Всеки има един глас. Не се изисква съгласие на 100%, за да продължиш.</p>')+
+      '</section><section class="panel section"><h3>За обсъждане след гласуването</h3><p class="muted">'+safe(task.takeaway)+'</p></section>'+foot()+'</div>';
+    all('[data-team-vote]',async(el)=>{
+      el.disabled=true;
+      try{
+        await rpc('team_vote',{p_token:token(),p_mission:mission,p_choice:el.dataset.teamVote});
+        student=await state();teamAfterVote=mission;renderTeamCheckpoint(mission);
+      }catch(err){el.disabled=false;toast(err.message)}
+    });
+    bind('[data-action="team-next"]',()=>{teamAfterVote=0;feedback=null;showHint=false;renderPlay()});
+    if(myVote)startPolling(async()=>{
+      const st=await state();if(qs('play')===null)return;
+      const votes=(st.team_tallies||[]).filter(x=>x.mission===mission);
+      const newCount=votes.reduce((v,x)=>v+Number(x.votes||0),0);
+      if(newCount!==sum){student=st;renderTeamCheckpoint(mission)}
+    },9000);
+  }
   function endEarly(st){
     root.innerHTML='<div class="narrow">'+head()+'<section class="panel center"><h2>Сесията приключи</h2><p>Учителят завърши играта. Твоят резултат до момента е:</p><div class="code">'+st.total+' / 100</div><p class="tiny">Благодарим за участието!</p></section>'+foot()+'</div>';
   }
   function finale(){
     const score=Number(student.total)||0;
+    const teamNote=student.team_mode?'<p class="team-inline">Твоят отбор: <strong>'+safe(student.team_name||'')+'</strong> · общите решения се обсъждат с екипа.</p>':'';
     const level=score>=85?['🏆','Златен координатор']:score>=65?['🥈','Сребърен координатор']:score>=40?['🥉','Бронзов координатор']:['🎖️','Координатор стажант'];
     const refs=['Поверителност','Групи','Споделени файлове','Анкети','Онлайн поведение'];
     const review=missions.map((m,i)=>{const pts=(student.answers||[]).filter(a=>a.mission===m.id).reduce((v,a)=>v+a.points,0);return '<div class="progressline"><div class="line-head"><strong>'+m.id+'. '+safe(m.title)+'</strong><span>'+pts+'/20 т.</span></div><div class="bar"><span style="width:'+(pts*5)+'%"></span></div></div>'}).join('');
-    root.innerHTML='<div class="narrow">'+head('МИСИЯТА Е ИЗПЪЛНЕНА')+'<section class="panel center"><span class="badge">ФИНАЛЕН РЕЗУЛТАТ</span><div class="medal">'+level[0]+'</div><h2>'+level[1]+'</h2><div class="code">'+score+' / 100</div><p class="muted" style="margin-top:16px">Завърши всичките пет мисии. Вече знаеш как да участваш по-безопасно и ефективно в дигитален екип.</p></section><section class="panel section"><h3>Твоят напредък по мисии</h3>'+review+'</section><section class="panel section"><h3>Самооценка</h3><p class="muted">Кое ще провериш или подобриш при следващата си съвместна работа онлайн?</p><div class="choice-list">'+refs.map(x=>'<button class="choice" data-reflect="'+safe(x)+'" '+(student.reflection?'disabled':'')+'><span>'+safe(x)+'</span></button>').join('')+'</div>'+(student.reflection?'<div class="feedback">✅ Благодарим за самооценката: '+safe(student.reflection)+'</div>':'')+'</section>'+foot()+'</div>';
+    root.innerHTML='<div class="narrow">'+head('МИСИЯТА Е ИЗПЪЛНЕНА')+'<section class="panel center"><span class="badge">ФИНАЛЕН РЕЗУЛТАТ</span><div class="medal">'+level[0]+'</div><h2>'+level[1]+'</h2><div class="code">'+score+' / 100</div><p class="muted" style="margin-top:16px">Завърши всичките пет мисии. Вече знаеш как да участваш по-безопасно и ефективно в дигитален екип.</p>'+teamNote+'</section><section class="panel section"><h3>Твоят напредък по мисии</h3>'+review+'</section><section class="panel section"><h3>Самооценка</h3><p class="muted">Кое ще провериш или подобриш при следващата си съвместна работа онлайн?</p><div class="choice-list">'+refs.map(x=>'<button class="choice" data-reflect="'+safe(x)+'" '+(student.reflection?'disabled':'')+'><span>'+safe(x)+'</span></button>').join('')+'</div>'+(student.reflection?'<div class="feedback">✅ Благодарим за самооценката: '+safe(student.reflection)+'</div>':'')+'</section>'+foot()+'</div>';
     all('[data-reflect]',async(el)=>{try{await rpc('student_reflect',{p_token:token(),p_choice:el.dataset.reflect});student=await state();finale()}catch(e){toast(e.message)}});
   }
   async function play(){

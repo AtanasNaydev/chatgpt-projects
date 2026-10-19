@@ -107,7 +107,7 @@
     },ms);
   }
   function waiting(st){
-    root.innerHTML='<div class="narrow">'+head('ЧАКАЛНЯ')+'<section class="panel center"><span class="badge">ПРИСЪЕДИНЕН УЧАСТНИК</span><div class="wait-icon">⌛</div><h2>Очакваме старт</h2><p class="lead">Здравей, <b class="accent">'+safe(st.nickname)+'</b>!</p><p>Ти си в играта с код <strong>'+safe(st.code)+'</strong>. Изчакай учителят да стартира мисията.</p><p class="tiny">Играта ще започне автоматично, без презареждане.</p></section>'+foot()+'</div>';
+    root.innerHTML='<div class="narrow">'+head('ЧАКАЛНЯ')+'<section class="panel center"><span class="badge">ПРИСЪЕДИНЕН УЧАСТНИК</span><div class="wait-icon">⌛</div><h2>Очакваме старт</h2><p class="lead">Здравей, <b class="accent">'+safe(st.nickname)+'</b>!</p>'+(st.team_mode?'<p class="team-inline">👥 Отбор: '+safe(st.team_name||'')+'</p>':'')+'<p>Ти си в играта с код <strong>'+safe(st.code)+'</strong>. Изчакай учителят да стартира мисията.</p><p class="tiny">Играта ще започне автоматично, без презареждане.</p></section>'+foot()+'</div>';
     startPolling(async()=>{try{const s=await state();if(s.status!=='lobby') {student=s;renderPlay()}}catch(e){toast(e.message)}},2800);
   }
   function paused(st){
@@ -145,7 +145,7 @@
     if(!student){spinner('Проверяваме ученическата сесия…');return}
     if(student.status==='lobby')return waiting(student);
     if(student.status==='paused')return paused(student);
-    if(student.status==='ended'&&student.completed<20){return endEarly(student)}
+    if(student.status==='ended')return student.completed>=20?finale():endEarly(student);
     const completed=Number(student.completed)||0;
     const completedMission=completed>0&&completed%4===0?completed/4:0;
     const voted=(student.team_votes||[]).some(v=>v.mission===completedMission);
@@ -201,7 +201,7 @@
           '<div class="team-tally"><h3>Изборите на отбора</h3>'+task.options.map(o=>{const val=Number((counts.find(c=>c.choice_id===o.id)||{}).votes||0);return '<div class="progressline"><div class="line-head"><strong>Вариант '+o.id+'</strong><span>'+val+' гласа</span></div><div class="bar"><span style="width:'+(sum?Math.round(val/sum*100):0)+'%"></span></div></div>'}).join('')+'</div>'+
           '<div class="actions">'+btn(mission===5?'Към финала →':'Следваща мисия →','team-next','primary full')+'</div>':
           '<p class="tiny">Всеки има един глас. Не се изисква съгласие на 100%, за да продължиш.</p>')+
-      '</section><section class="panel section"><h3>За обсъждане след гласуването</h3><p class="muted">'+safe(task.takeaway)+'</p></section>'+foot()+'</div>';
+      '</section><section class="panel section"><h3>За обсъждане</h3><p class="muted">'+(myVote?safe(task.takeaway):'Обяснете един на друг какви рискове и ползи виждате във всеки вариант. Отстоявайте избора си с аргументи.')+'</p></section>'+foot()+'</div>';
     all('[data-team-vote]',async(el)=>{
       el.disabled=true;
       try{

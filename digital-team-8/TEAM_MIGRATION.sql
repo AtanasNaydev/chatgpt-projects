@@ -69,6 +69,14 @@ END $fn$;
 REVOKE ALL ON FUNCTION public.student_join_v2(text,text,text,text) FROM public;
 GRANT EXECUTE ON FUNCTION public.student_join_v2(text,text,text,text) TO anon,authenticated;
 
+CREATE OR REPLACE FUNCTION public.student_join(p_code text,p_nickname text,p_token text)
+RETURNS jsonb LANGUAGE sql SECURITY DEFINER
+SET search_path TO public,extensions,pg_temp AS $fn$
+  SELECT public.student_join_v2(p_code,p_nickname,p_token,NULL::text);
+$fn$;
+REVOKE ALL ON FUNCTION public.student_join(text,text,text) FROM public;
+GRANT EXECUTE ON FUNCTION public.student_join(text,text,text) TO anon,authenticated;
+
 CREATE OR REPLACE FUNCTION public.team_vote(p_token text,p_mission int,p_choice text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO public,extensions,pg_temp AS $fn$
@@ -96,14 +104,14 @@ GRANT EXECUTE ON FUNCTION public.team_vote(text,int,text) TO anon,authenticated;
 CREATE OR REPLACE FUNCTION public.student_state(p_token text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path TO public,extensions,pg_temp AS $fn$
-DECLARE pid uuid; sid uuid; nn text; team text; refl text; st text; sc text; title text; mode boolean;
+DECLARE pid uuid; sid uuid; nn text; team text; refl text; st text; sc text; session_title text; mode boolean;
         rows_json jsonb; own_votes jsonb; tallies jsonb; members int; cnt int; total int;
 BEGIN
  SELECT p.id,p.session_id,p.nickname,p.team_name,p.reflection INTO pid,sid,nn,team,refl
  FROM public.participant_secrets ps JOIN public.participants p ON p.id=ps.participant_id
  WHERE ps.token_hash=encode(extensions.digest(coalesce(p_token,''),'sha256'),'hex');
  IF NOT FOUND THEN RAISE EXCEPTION 'Невалидна ученическа сесия'; END IF;
- SELECT status,code,title,team_mode INTO st,sc,title,mode FROM public.game_sessions WHERE id=sid;
+ SELECT s.status,s.code,s.title,s.team_mode INTO st,sc,session_title,mode FROM public.game_sessions s WHERE s.id=sid;
  SELECT count(*) FILTER(WHERE solved),coalesce(sum(points),0),coalesce(jsonb_agg(
  jsonb_build_object('mission',mission,'step',step,'solved',solved,'points',points,'attempts',attempts,'hint_used',hint_used,'skipped',skipped,'wrong_choices',wrong_choices)
  ORDER BY mission,step),'[]'::jsonb)
@@ -119,7 +127,7 @@ BEGIN
    members:=0;tallies:='[]'::jsonb;
  END IF;
  UPDATE public.participants SET last_seen_at=now() WHERE id=pid AND last_seen_at<now()-interval '45 seconds';
- RETURN jsonb_build_object('status',st,'code',sc,'title',title,'nickname',nn,'completed',cnt,'total',total,
+ RETURN jsonb_build_object('status',st,'code',sc,'title',session_title,'nickname',nn,'completed',cnt,'total',total,
    'answers',rows_json,'reflection',refl,'team_mode',mode,'team_name',team,
    'team_votes',own_votes,'team_tallies',tallies,'team_members',members);
 END $fn$;

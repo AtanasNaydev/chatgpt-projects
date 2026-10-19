@@ -310,7 +310,7 @@
     if(fill)fill.style.width=(total?Math.round(n/total*100):0)+'%';
   }
   async function refreshTeacherStats(sid){
-    const numbers=$('.two .three .stat b');
+    const numbers=$$('.two .three .stat b');
     if(qs('teacher')===null||teacherSessionId!==sid||numbers.length<3)return;
     try{
       const [participants,answers]=await Promise.all([
@@ -357,7 +357,7 @@
     }catch(e){setSyncState(true)}
   }
   async function refreshDisplayStats(sid){
-    const stats=$('.display-mode .three .stat b');
+    const stats=$$('.display-mode .three .stat b');
     if(qs('display')!==sid||stats.length<3)return;
     try{
       const [sessions,p,a]=await Promise.all([
@@ -372,7 +372,7 @@
       stats[0].textContent=n;
       stats[1].textContent=(n?Math.round(a.filter(x=>x.solved).length/(n*20)*100):0)+'%';
       stats[2].textContent=({lobby:'Чакалня',active:'В ход',paused:'Пауза',ended:'Край'})[sessions[0].status]||sessions[0].status;
-      const bars=$('.display-mode .progressline');
+      const bars=$$('.display-mode .progressline');
       missions.forEach((m,i)=>updateBar(bars[i],p.filter(x=>a.filter(y=>y.participant_id===x.id&&y.solved&&y.mission<=m.id).length>=m.id*4).length,n));
       const panel=$('#display-team-cards');
       if(panel){const votes=await db('team_votes','select=team_name,mission,choice_id&session_id=eq.'+sid);const rows=p.map(item=>({...item,completed:a.filter(y=>y.participant_id===item.id&&y.solved).length,total:a.filter(y=>y.participant_id===item.id).reduce((v,y)=>v+Number(y.points||0),0)}));panel.innerHTML=teamStatsMarkup(rows,votes)}

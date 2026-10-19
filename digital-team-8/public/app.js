@@ -234,6 +234,18 @@
     spinner('Възстановяваме мисията…');
     try{student=await state();renderPlay()}catch(e){localStorage.removeItem(tokenKey);errorPage('Ученическата сесия не може да бъде възстановена: '+e.message,'/?join='+encodeURIComponent(localStorage.getItem(codeKey)||''))}
   }
+  function teamStatsMarkup(rows,votes){
+    return '<div class="team-card-grid">'+teamNames.map((name,i)=>{
+      const members=rows.filter(p=>p.team_name===name),n=members.length;
+      const done=members.reduce((v,p)=>v+Number(p.completed||0),0);
+      const pct=n?Math.round(done/(n*20)*100):0;
+      const voted=votes.filter(v=>v.team_name===name).length;
+      const score=n?Math.round(members.reduce((v,p)=>v+Number(p.total||0),0)/n):0;
+      return '<div class="team-card"><div class="team-card-head"><span class="team-icon">'+(['🛡️','🎨','🔎','🤝'][i])+'</span><strong>'+safe(name)+'</strong></div>'+
+      '<div class="team-metrics"><span>'+n+' участници</span><span>'+pct+'% напредък</span></div>'+
+      '<div class="bar"><span style="width:'+pct+'%"></span></div><div class="team-metrics"><span>Средно '+score+'/100 т.</span><span>'+voted+' отборни гласа</span></div></div>';
+    }).join('')+'</div>';
+  }
   async function teacher(){
     clearInterval(timer);
     spinner('Подготвяме учителския панел…');
@@ -244,9 +256,10 @@
       const sel=sessions.find(s=>s.id===teacherSessionId);
       if(!sel)return teacherEmpty(sessions);
       const [participants,answers]=await Promise.all([
-        db('participants','select=id,nickname,reflection,finished_at,last_seen_at&session_id=eq.'+sel.id),
+        db('participants','select=id,nickname,team_name,reflection,finished_at,last_seen_at&session_id=eq.'+sel.id),
         db('answers','select=participant_id,mission,step,solved,points,wrong_choices&session_id=eq.'+sel.id)]);
       const rows=participants.map(p=>{const as=answers.filter(a=>a.participant_id===p.id);return {...p,completed:as.filter(a=>a.solved).length,total:as.reduce((sum,a)=>sum+a.points,0)}});
+      const teamVotes=sel.team_mode?await db('team_votes','select=team_name,mission,choice_id&session_id=eq.'+sel.id):[];
       const total=rows.length;const finished=rows.filter(p=>p.completed===20).length;
       const avg=total?Math.round(rows.reduce((x,p)=>x+p.total,0)/total):0;
       const joined=Math.round(rows.reduce((sum,p)=>sum+p.completed,0)/(Math.max(total,1)*20)*100);
@@ -254,6 +267,10 @@
       const wrongs={}; answers.forEach(a=>(a.wrong_choices||[]).forEach(c=>{const id=a.mission+'.'+a.step;wrongs[id]=(wrongs[id]||0)+1}));
       const common=Object.entries(wrongs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([key,count])=>{const [mi,si]=key.split('.').map(Number);return '<li>'+safe(missions[mi-1].steps[si-1].title)+' — '+count+' грешни опита</li>'}).join('')||'<li class="muted">Все още няма регистрирани грешки.</li>';
       root.innerHTML='<div class="wrap">'+head('УЧИТЕЛСКИ ПАНЕЛ')+'<div class="topbar"><div><p class="eyebrow">УПРАВЛЕНИЕ НА УРОК</p><h2>Класна сесия</h2></div>'+btn('Изход','logout','ghost')+'</div><div class="two"><section class="panel"><h3>Активна сесия</h3><div class="formrow"><label>Избери сесия</label><select id="sessions" style="background:#0b1b32;color:white;padding:12px;border:1px solid #476082;border-radius:10px;width:100%">'+sessions.map(s=>'<option value="'+safe(s.id)+'" '+(s.id===sel.id?'selected':'')+'>'+safe(s.class_label+' · '+s.code+' · '+s.status)+'</option>').join('')+'</select></div><p class="tiny">Код за учениците</p><div class="code">'+safe(sel.code)+'</div><div class="actions section teacher-actions">'+btn('Копирай линк','copy','ghost')+btn('Отвори екран за дъската','display','ghost')+'</div><div class="qrbox" id="qr"></div><p class="tiny">QR кодът води директно към присъединяването.</p><div class="actions teacher-actions">'+(sel.status==='lobby'?btn('▶ Стартирай','start','primary'):sel.status==='active'?btn('Ⅱ Пауза','pause'):sel.status==='paused'?btn('▶ Продължи','start','primary'):'')+(sel.status!=='ended'?btn('Приключи','end','warn'):'')+'</div><div class="separator"></div>'+btn('+ Нова сесия','create','ghost')+'</section><section class="stack"><div class="three"><div class="panel stat"><b>'+total+'</b><small>Ученици</small></div><div class="panel stat"><b>'+finished+'</b><small>Завършили</small></div><div class="panel stat"><b>'+avg+'</b><small>Средно точки</small></div></div><div class="panel"><h3>Общ напредък: '+joined+'%</h3><div class="bar"><span style="width:'+joined+'%"></span></div>'+perMission.map(x=>progress(x.m.title,x.done,total)).join('')+'</div></section></div><div class="two section"><section class="panel"><h3>Напредък по участници</h3><div class="teacher-users">'+(rows.length?rows.map(p=>'<div class="teacher-user"><span class="avatar">◈</span><div style="flex:1"><b>'+safe(p.nickname)+'</b><div class="tiny">'+p.completed+'/20 задачи</div></div><strong>'+p.total+' т.</strong></div>').join(''):'<p class="muted">Още няма присъединили се ученици.</p>')+'</div></section><section class="panel"><h3>Най-чести затруднения</h3><ol>'+common+'</ol><p class="muted">Използвай резултатите за 7-минутното обсъждане накрая.</p>'+btn('Изтегли CSV','csv','ghost full')+'<div class="separator"></div><h3>Финална самооценка</h3>'+refsStats(rows)+'</section></div>'+foot()+'</div>';
+      if(sel.team_mode){
+        const anchor=$('.two.section');
+        if(anchor)anchor.insertAdjacentHTML('beforebegin','<section class="panel section"><span class="badge">👥 ОТБОРНА РАБОТА</span><h3 style="margin-top:14px">Общ напредък по отбори</h3><p class="muted">Всеки ученик работи от телефон и участва в общо обсъждане след мисията. Няма бонус за скорост.</p><div id="teacher-teams">'+teamStatsMarkup(rows,teamVotes)+'</div></section>');
+      }
       if(window.QRCode) {new window.QRCode($('#qr'),{text:joinLink(sel.code),width:184,height:184,colorDark:'#081329',colorLight:'#ffffff'})}
       else $('#qr').textContent='QR библиотеката не се зареди. Използвай линка за присъединяване.';
       bind('[data-action="logout"]',()=>{localStorage.removeItem(authKey);nav('/?teacher=1')});
@@ -265,7 +282,7 @@
       bind('[data-action="end"]',()=>{if(confirm('Сигурни ли сте, че искате да приключите сесията?'))changeStatus(sel.id,'ended')});
       bind('[data-action="csv"]',()=>{const cur=teacherSnapshot||{sel,rows,answers};downloadCSV(cur.sel,cur.rows,cur.answers)});
       $('#sessions').addEventListener('change',e=>{teacherSessionId=e.target.value;localStorage.setItem('digital8_selected_session',teacherSessionId);teacher()});
-      teacherSnapshot={sel,rows,answers};
+      teacherSnapshot={sel,rows,answers,teamVotes};
        const box=$('.two .stack > .panel');if(box)box.insertAdjacentHTML('beforeend','<p id="sync-state" class="live-meta">● Данните се обновяват незабележимо</p>');
        startPolling(()=>{if(qs('teacher')!==null && teacherSessionId===sel.id)return refreshTeacherStats(sel.id)},6000);
     }catch(err){errorPage('Учителският панел: '+err.message,'/?teacher=1')}
@@ -351,12 +368,30 @@
   function joinLink(code){return location.origin+'/?join='+encodeURIComponent(code)}
   function teacherEmpty(){root.innerHTML='<div class="narrow">'+head('УЧИТЕЛСКИ ПАНЕЛ')+'<div class="panel center"><h2>Създай класна сесия</h2><p class="muted">След създаването ще получиш код и QR за всеки телефон.</p>'+btn('Нова сесия','create','primary full')+'<p></p>'+btn('Изход','logout','ghost')+'</div></div>';bind('[data-action="create"]',createSession);bind('[data-action="logout"]',()=>{localStorage.removeItem(authKey);teacherLogin()})}
   async function createSession(){
-    const title=prompt('Име на събитието:', 'Ден на идеите');if(title===null)return;
-    try{
-      const rows=await db('game_sessions','','POST',{title:title.trim().slice(0,70)||'Ден на идеите',class_label:'8. клас'});
-      if(!rows||!rows[0])throw Error('Невъзможно създаване на сесия');
-      teacherSessionId=rows[0].id;localStorage.setItem('digital8_selected_session',teacherSessionId);teacher();
-    }catch(e){toast(e.message)}
+    const dialog=document.createElement('dialog');dialog.className='create-dialog';
+    dialog.innerHTML='<form id="new-session-form" class="create-session-form"><p class="eyebrow">НОВА КЛАСНА СЕСИЯ</p><h2>Настрой урока</h2>'+
+    '<div class="formrow"><label for="session-title">Заглавие</label><input id="session-title" maxlength="70" value="Ден на идеите" required></div>'+
+    '<fieldset class="team-modes"><legend>Начин на работа</legend><label class="mode-choice"><input type="radio" name="session-mode" value="teams" checked><span><b>👥 С отбори</b><small>Всеки има собствен телефон и решава задачи. След всяка мисия отборите обсъждат и гласуват.</small></span></label>'+
+    '<label class="mode-choice"><input type="radio" name="session-mode" value="solo"><span><b>◎ Самостоятелно</b><small>Пет мисии и общ напредък на класа, без отборни гласувания.</small></span></label></fieldset>'+
+    '<div class="actions"><button class="btn primary" type="submit">Създай сесия</button><button class="btn ghost" type="button" id="cancel-session">Отказ</button></div></form>';
+    root.appendChild(dialog);
+    dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+    dialog.querySelector('#cancel-session').onclick=()=>dialog.close();
+    dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close()});
+    dialog.querySelector('form').onsubmit=async(e)=>{
+      e.preventDefault();
+      const submit=dialog.querySelector('button[type="submit"]');submit.disabled=true;
+      try{
+        const title=dialog.querySelector('#session-title').value.trim().slice(0,70)||'Ден на идеите';
+        const teamMode=dialog.querySelector('input[name="session-mode"]:checked').value==='teams';
+        const rows=await db('game_sessions','','POST',{title,class_label:'8. клас',team_mode:teamMode});
+        if(!rows||!rows[0])throw Error('Създаването на сесия не успя');
+        teacherSessionId=rows[0].id;
+        localStorage.setItem('digital8_selected_session',teacherSessionId);
+        dialog.close();teacher();
+      }catch(err){toast(err.message);submit.disabled=false}
+    };
+    dialog.showModal();
   }
   async function changeStatus(sid,status){
     try{
@@ -368,8 +403,8 @@
   }
   function downloadCSV(s,rows,answers){
     const toCSV=(x)=>'"'+String(x==null?'':x).replaceAll('"','""')+'"';
-    const header=['Псевдоним','Завършени задачи','Точки','Самооценка'];
-    const lines=[header,...rows.map(x=>[x.nickname,x.completed,x.total,x.reflection||''])].map(line=>line.map(toCSV).join(';'));
+    const header=['Псевдоним','Отбор','Завършени задачи','Точки','Самооценка'];
+    const lines=[header,...rows.map(x=>[x.nickname,x.team_name||'',x.completed,x.total,x.reflection||''])].map(line=>line.map(toCSV).join(';'));
     const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='digital-team-8-'+s.code+'.csv';a.click();URL.revokeObjectURL(a.href);
   }

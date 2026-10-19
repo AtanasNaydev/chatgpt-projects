@@ -1,0 +1,1 @@
+window.GAME_CONFIG = {"supabaseUrl":"https://lwfczovbagxcszditpve.supabase.co","publishableKey":"sb_publishable_HOajBdUxc9iDEXJhNfGIMw_ByKOcPv_"};

@@ -121,7 +121,7 @@ function renderHud(){
 function heading(i,t,description){return '<div class="mission-heading"><div><div class="tagline">✦ МИСИЯ '+(i+1)+' / 5</div><h2>'+escapeHtml(t)+'</h2><p class="lead">'+escapeHtml(description)+'</p></div><span class="big-score">✦ '+st.points[i]+' / 20 XP</span></div>'}
 function feedback(msg,kind){return msg?'<div class="feedback '+(kind||"")+'" role="status">'+escapeHtml(msg)+'</div>':""}
 function render(){renderHud();let h="";if(view==="home")h=home();else if(view==="mission"){h=[renderOrder,renderProps,renderRobot,renderFlow,renderFinal][window.mission]()}else if(view==="summary")h=summary();else if(view==="teacher")h=teacherView();$("mainContent").innerHTML=h}
-function go(next,i){if(next==="mission"&&(!st.nick||(i>0&&!st.done[i-1]))){notify("Завърши предишната мисия, за да отключиш тази.");return}view=next;if(i!==undefined)window.mission=i;render();window.scrollTo({top:0,behavior:"smooth"})}
+function go(next,i){if(next==="mission"&&(!st.nick||(i>0&&!st.done[i-1]))){notify("Завърши предишната мисия, за да отключиш тази.");return}view=next;if(i!==undefined){window.mission=i;if(next==="mission"&&i===4){const first=st.bossDone.findIndex(v=>!v);bossPhase=first>=0?first:3;bossNotice=""}}render();window.scrollTo({top:0,behavior:"smooth"})}
 function home(){return '<div class="tagline">СТАНЦИЯ ALGO-01 • АКТИВНА МИСИЯ</div><h2>Добре дошъл, '+escapeHtml(st.nick||"изследователю")+'! 🚀</h2><p class="lead">Петте системи на станцията чакат да ги възстановиш. Всяка мисия е ново логическо предизвикателство. Не се страхувай да грешиш: поправяй алгоритъма и опитай отново!</p>'+
  (st.nick?'<div class="row"><span class="mini-badge">Играч: '+escapeHtml(st.nick)+'</span>'+(st.room?'<span class="mini-badge">Стая: '+escapeHtml(st.room)+'</span>':'<span class="mini-badge">Самостоятелен режим</span>')+'<button class="btn ghost small" data-act="reset">Нова игра</button></div>':'<button class="btn" data-act="start-modal">Започни мисията →</button>')+
  '<div class="mission-grid">'+M.map((m,i)=>'<button class="mission-card '+(st.done[i]?"complete":(i>0&&!st.done[i-1]?"locked":""))+' '+(i===4?"wide":"")+'" data-mission="'+i+'" '+(!st.nick||(i>0&&!st.done[i-1])?"disabled":"")+'><span class="roundicon">'+m.icon+'</span><span class="corner">'+(st.done[i]?"✓ ГОТОВО":i>0&&!st.done[i-1]?"🔒 ЗАКЛЮЧЕНО":st.points[i]+" / 20 XP")+'</span><strong>0'+(i+1)+'. '+escapeHtml(m.title)+'</strong><p>'+escapeHtml(m.sub)+' · Награда: '+escapeHtml(m.badge)+'</p></button>').join("")+'</div><div class="notice">ⓘ Можеш да играеш и без стая. За общ напредък учителят създава онлайн стая и споделя шестсимволния код.</div><div class="row"><a class="btn secondary" href="/download-game.zip">↓ Изтегли играта като ZIP архив</a></div>'}
@@ -401,7 +401,28 @@ if(b.dataset.dir!==undefined){if(robotBusy||cmd.length>=90)return;cmd.push(b.dat
 if(b.dataset.flowLevel!==undefined){setupFlow(Number(b.dataset.flowLevel));render();return}
 if(b.dataset.flowPick!==undefined){flowPick=b.dataset.flowPick;render();return}
 if(b.dataset.flowSlot!==undefined){if(!flowPick)return;const part=FLOW[flowIdx].p.concat(FLOW_DECOYS[flowIdx].map((text,i)=>["decoy"+i,text])).find(p=>p[0]===flowPick);if(part){for(const key in flowPlaced)if(flowPlaced[key]===part[1])delete flowPlaced[key];flowPlaced[b.dataset.flowSlot]=part[1]}flowPick="";flowNotice="";render();return}
-if(b.dataset.finalQ!==undefined){const i=Number(b.dataset.finalQ),a=Number(b.dataset.finalA);if(st.quizDone[i])return;if(a===allFinalQuestions()[st.quizOrder[i]].correct){st.quizDone[i]=true;tally();render()}else notify("Не е този отговор. Опитай отново.");return}
+
+
+if(b.dataset.bossPhase!==undefined){
+ const target=Number(b.dataset.bossPhase);
+ if(target>=0&&target<4&&(target===0||st.bossDone[target-1])){bossPhase=target;bossNotice="";render()}return;
+}
+if(b.dataset.bossIndex!==undefined){bossSelected=Number(b.dataset.bossIndex);render();return}
+if(b.dataset.bossDir!==undefined){
+ if(bossSelected>=0&&bossSelected<bossProgram.length){bossProgram[bossSelected]=b.dataset.bossDir;bossSelected=-1;bossRepairTrail=[[0,0]];bossNotice="";render()}return;
+}
+if(b.dataset.bossOp!==undefined){bossOperator=b.dataset.bossOp;bossTrial=[];bossNotice="";render();return}
+if(b.dataset.bossThreshold!==undefined){bossThreshold=Number(b.dataset.bossThreshold);bossTrial=[];bossNotice="";render();return}
+if(b.dataset.bossRoute!==undefined){bossRouteSelected=Number(b.dataset.bossRoute);bossRouteTrail=[[0,0]];bossNotice="";render();return}
+if(b.dataset.bossDevice!==undefined){
+ if(bossPhase!==3||st.bossDone[3]||!st.bossDone[2])return;
+ const d=BOSS_DEVICES.find(x=>x.id===b.dataset.bossDevice);
+ if(!d||st.bossDevices.includes(d.id))return;
+ const missing=d.needs.filter(x=>!st.bossDevices.includes(x));
+ if(missing.length){bossNotice="⚠ Първо включи: "+missing.map(x=>BOSS_DEVICES.find(d=>d.id===x).name).join(" и ")+". Следвай зависимостите между системите."}
+ else {st.bossDevices.push(d.id);bossNotice="✓ Модулът „"+d.name+"“ е включен правилно.";if(d.id==="launch"){bossNotice="✓ Спасителният сигнал е изпратен! Станцията е спасена.";bossFinish(3)}else persist()}
+ render();return;
+}
 if(b.dataset.review!==undefined){reviewModal(Number(b.dataset.review));return}
 switch(b.dataset.act){
 case "home":go("home");break;
@@ -414,7 +435,7 @@ case "role-back":if(st.nick){$("modalRoot").innerHTML=""}else introModal();break
 case "teacher-access":$("modalRoot").innerHTML="";go("teacher");if(teacher)await getBoard();break;
 case "close-modal":closeModal();break;
 case "help":helpModal();break;
-case "reset":if(confirm("Нова игра? Текущият напредък ще бъде изтрит само от това устройство.")){st=mk();ensureVariations();localStorage.removeItem(STORE);view="home";setupOrder(0);setupRobot(0);setupFlow(0);render();introModal()}break;
+case "reset":if(confirm("Нова игра? Текущият напредък ще бъде изтрит само от това устройство.")){st=mk();ensureVariations();localStorage.removeItem(STORE);view="home";setupOrder(0);setupRobot(0);setupFlow(0);bossPhase=0;bossProgram=["→","→","→","→","←","↓","↓","↓"];bossSelected=-1;bossNotice="";bossRepairTrail=[[0,0]];bossOperator="";bossThreshold=0;bossTrial=[];bossRouteSelected=-1;bossRouteTrail=[[0,0]];render();introModal()}break;
 case "check-order":if(orderSeq.length===ORDER[orderIdx].steps.length&&orderSeq.every((v,i)=>v===i)){if(!st.orderDone[orderIdx]){st.orderDone[orderIdx]=true;tally()}orderNotice="✓ Отлично! Инструкциите са подредени в правилната последователност."}else orderNotice="Стъпките още не са в правилния ред. Опитай да откриеш какво трябва да се случи по-рано.";render();break;
 case "reset-order":setupOrder(orderIdx);render();break;
 case "next-order":if(st.orderDone[orderIdx]&&orderIdx<ORDER.length-1){setupOrder(orderIdx+1);render()}else if(st.orderDone.every(Boolean)){go("mission",1)}break;
@@ -432,6 +453,46 @@ case "clear-flow":setupFlow(flowIdx);render();break;
 case "hint-flow":flowNotice="Подсказка: елипсите са за Начало и Край. В успоредника се въвеждат или извеждат данни. Ромбът проверява условие, а „ДА“ и „НЕ“ водят до различни изходи.";render();break;
 case "simulate-flow":{if(!st.flowDone[flowIdx])break;const raw=$("flowExample").value.trim();if(!raw||!Number.isFinite(Number(raw))){flowNotice="⚠ Въведи валидно число.";render();break}const n=Number(raw),yes=flowIdx===0?n%2===0:n>0;flowNotice="✓ При вход "+n+" условието е "+(yes?"ДА":"НЕ")+". Резултат: "+(flowIdx===0?(yes?"четно":"нечетно"):(yes?"да":"не"))+".";render();break}
 
+
+case "boss-test-repair":{
+ if(bossPhase!==0)return;
+ const result=bossSimulation(BOSS_FIX_MAP,bossProgram);
+ bossRepairTrail=result.visited;
+ if(result.ok){bossNotice="✓ Поправи алгоритъма! АЛГО достигна портала след "+result.steps+" команди.";bossFinish(0)}
+ else bossNotice=result.reason==="wall"?"⚠ Команда "+result.steps+" се опита да премине през стена или извън картата.":"⚠ Роботът завърши програмата, без да достигне портала. Намери грешната команда.";
+ render();break;
+}
+case "boss-reset-repair":
+ bossProgram=["→","→","→","→","←","↓","↓","↓"];bossSelected=-1;bossRepairTrail=[[0,0]];bossNotice="";render();break;
+case "boss-test-sensor":{
+ if(bossPhase!==1||!st.bossDone[0])return;
+ const test=(v)=>bossOperator==="<"?v<bossThreshold:bossOperator==="≤"?v<=bossThreshold:bossOperator===">"?v>bossThreshold:v>=bossThreshold;
+ bossTrial=[18,29,30,44];
+ const passing=bossTrial.every(v=>test(v)===(v<30));
+ if(passing){bossNotice="✓ Четирите измервания са обработени правилно. Тревогата се включва само под 30%.";bossFinish(1)}
+ else bossNotice="⚠ Сензорът греши при поне едно измерване. Помисли какво трябва да стане при точно 30% кислород.";
+ render();break;
+}
+case "boss-test-route":{
+ if(bossPhase!==2||!st.bossDone[1]||bossRouteSelected<0)return;
+ const choice=BOSS_ROUTES[bossRouteSelected];
+ const result=bossSimulation(BOSS_ROUTE_MAP,[...choice.seq]);
+ bossRouteTrail=result.visited;
+ const valid=BOSS_ROUTES.map((r,i)=>({i,...bossSimulation(BOSS_ROUTE_MAP,[...r.seq])})).filter(x=>x.ok);
+ const shortest=Math.min(...valid.map(x=>x.steps));
+ if(!result.ok)bossNotice="⚠ Този маршрут се сблъсква със стена или не стига до портала. Избери друг.";
+ else if(result.steps>shortest)bossNotice="⚠ Маршрутът работи, но изисква "+result.steps+" команди. Има по-ефективен с "+shortest+".";
+ else {bossNotice="✓ Правилно! Избра най-краткия работещ алгоритъм — "+result.steps+" команди.";bossFinish(2)}
+ render();break;
+}
+case "boss-reset-devices":if(bossPhase===3&&!st.bossDone[3]){st.bossDevices=[];bossNotice="";persist();render()}break;
+case "boss-next":{
+ if(!st.bossDone[bossPhase])return;
+ if(bossPhase<3){bossPhase++;bossNotice="";render()}
+ else if(st.bossDone.every(Boolean))go("summary");
+ break;
+}
+case "boss-summary":if(st.bossDone.every(Boolean))go("summary");break;
 case "print":window.print();break;
 case "export-json":downloadBlob(new Blob([JSON.stringify({game:"ALGO-01",nickname:st.nick,group:st.group,points:st.points,done:st.done,final:{bossDone:st.bossDone,bossDevices:st.bossDevices}},null,2)],{type:"application/json"}),"ALGO01-"+(st.nick.replace(/[^a-zA-Z0-9а-яА-Я]/g,"").slice(0,20)||"student")+".json");break;
 case "create-room":await createRoom();break;

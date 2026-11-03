@@ -138,6 +138,7 @@ function renderProps(){
 }
 
 const dirs={"↑":[-1,0],"↓":[1,0],"←":[0,-1],"→":[0,1]};
+function origin(cells){for(let r=0;r<cells.length;r++)for(let c=0;c<cells[r].length;c++)if(cells[r][c]==="S")return [r,c];return [0,0]}
 let robotIndex=0,robotKey=false,robotDoor=false,robotEnergy=new Set(),robotSpeed=270,robotFinished=false;
 function neededCrystals(map){let c=0;for(const row of map)for(const char of row)if(char==="E")c++;return c}
 function robotResetTrace(){robotTrail=[origin(MAPS[robotIdx].cells)];robotIndex=0;robotKey=false;robotDoor=false;robotEnergy=new Set();robotFinished=false}

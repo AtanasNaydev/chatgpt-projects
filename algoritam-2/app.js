@@ -32,11 +32,15 @@ const ALT_PROMPTS=[
 "Два маршрута дават еднакъв резултат, но единият използва 12 стъпки, а другият — 95. Кое свойство сравняваме?"
 ];
 const ALT_PROPS=PROPS.map((p,i)=>({...p,q:ALT_PROMPTS[i]}));
+
 const MAPS=[
- {name:"Първи сигнал",desc:"Изведи АЛГО от началната клетка до зеления портал.",cells:["S....",".###.","...#.","##...","...#G"]},
- {name:"Космически лабиринт",desc:"Пътят не е прав. Използвай внимателно стрелките.",cells:["S..#..","##.#..","......",".####.","....#.","###..G"]},
- {name:"Последният портал",desc:"По-труден маршрут с няколко завоя. Планирай предварително.",cells:["S...#..","##..#..","....#..",".#####.","....#..",".##....","...##.G"]}
+ {name:"Първи сигнал",desc:"Достигни портала. Напиши пълния маршрут и наблюдавай как роботът го изпълнява.",cells:["S....",".###.","...#.","##...","...#G"],theme:"Навигация"},
+ {name:"Космически лабиринт",desc:"Внимавай за стените и пробвай изпълнение стъпка по стъпка.",cells:["S..#..","##.#..","......",".####.","....#.","###..G"],theme:"Логика"},
+ {name:"Кристално ядро",desc:"Преди портала събери всички сини кристали ◆. Самото стигане до целта не е достатъчно!",cells:["S...#..",".##.#..","..E....",".###.#.","....#..",".#....G"],theme:"Събиране"},
+ {name:"Заключеният шлюз",desc:"Вземи ключа 🗝 и отключи шлюза 🔒, преди да продължиш към портала.",cells:["S..#..G",".#.#.#.",".K.#...","...D...",".#.#.##","...#...","...#..."],theme:"Условие"},
+ {name:"Евакуация ALGO-01",desc:"Финална мисия: събери двата кристала и стигни до портала през лабиринта.",cells:["S...#...",".##.#...","...E....",".####.#.",".E......",".#####..",".......G"],theme:"Финален тест"}
 ];
+
 const FLOW=[
  {title:"Четно или нечетно?",desc:"Попълни блок-схемата, която проверява дали числото n е четно.",p:[["start","Начало"],["read","Въведи n"],["condition","n % 2 == 0?"],["yes","Изведи „четно“"],["no","Изведи „нечетно“"],["end","Край"]]},
  {title:"Положително ли е x?",desc:"Ако x > 0, изведи „да“, иначе „не“.",p:[["start","Начало"],["read","Въведи x"],["condition","x > 0?"],["yes","Изведи „да“"],["no","Изведи „не“"],["end","Край"]]}
@@ -47,7 +51,7 @@ const FINALQ=[
  {q:"Кое най-точно описва алгоритъм?",a:["Произволен текст","Само компютърна програма","Краен ред от ясни стъпки за решаване на задача","Списък с имена"],correct:2,why:"Алгоритъмът е ясно зададена последователност от действия, която решава задача."},
  {q:"Кога използваме повторение?",a:["Когато няма вход","Когато действия се изпълняват многократно при определено правило","Само когато програмата е грешна","Когато приключваме програмата"],correct:1,why:"Повторението организира многократно изпълнение на действия по зададено правило."}
 ];
-const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false],propDone:Array(7).fill(false),robotDone:[false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
+const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
 let st=mk();
 try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===2)st=Object.assign(mk(),o)}catch(e){}
 let teacher=null;
@@ -62,7 +66,7 @@ function confetti(){if(matchMedia("(prefers-reduced-motion: reduce)").matches)re
 function tally(){const prev=st.done.slice();
  st.points[0]=st.orderDone.filter(Boolean).length*10;
  st.points[1]=st.propDone.reduce((n,b,i)=>n+(b?(i===6?2:3):0),0);
- st.points[2]=st.robotDone.reduce((n,b,i)=>n+(b?(i===2?6:7):0),0);
+ st.points[2]=st.robotDone.filter(Boolean).length*4;
  st.points[3]=st.flowDone.filter(Boolean).length*10;
  st.points[4]=st.quizDone.filter(Boolean).length*2+(st.freeDone?12:0);
  st.done=[st.orderDone.every(Boolean),st.propDone.every(Boolean),st.robotDone.every(Boolean),st.flowDone.every(Boolean),st.quizDone.every(Boolean)&&st.freeDone];
@@ -118,13 +122,78 @@ function renderProps(){
  '<button class="btn" data-act="prop-next">'+(st.propDone.every(Boolean)?"Следваща мисия →":"Следващ сигнал →")+'</button>'+
  '<button class="btn ghost" data-act="prop-hint">💡 Подсказка</button></div>'
 }
+
 const dirs={"↑":[-1,0],"↓":[1,0],"←":[0,-1],"→":[0,1]};
-function origin(cells){for(let r=0;r<cells.length;r++)for(let c=0;c<cells[r].length;c++)if(cells[r][c]==="S")return [r,c];return [0,0]}
-function setupRobot(i){robotIdx=i;cmd=[];robotTrail=[origin(MAPS[i].cells)];robotNotice="";robotBusy=false}
-function robotSvg(){const map=MAPS[robotIdx].cells,pos=robotTrail[robotTrail.length-1],width=map[0].length;return '<div class="robot-grid" style="grid-template-columns:repeat('+width+',minmax(0,1fr))">'+map.map((s,r)=>s.split("").map((k,c)=>{let isBot=pos[0]===r&&pos[1]===c,passed=robotTrail.some(p=>p[0]===r&&p[1]===c);return '<div class="cell '+(k==="#"?"wall ":k==="G"?"goal ":"")+(passed?"path ":"")+(isBot?"bot":"")+'" title="'+(isBot?"Робот":k==="#"?"Стена":k==="G"?"Цел":"Свободна клетка")+'">'+(isBot?"🤖":k==="#"?"▦":k==="G"?"✦":passed?"·":"")+'</div>'}).join("")).join("")+'</div>'}
-function renderRobot(){const map=MAPS[robotIdx];return heading(2,"Програмирай робота","Създай поредица от команди. След „Изпълни“ роботът следва всяка стрелка. Стени и граници са непреодолими.")+
- '<div class="stepper">'+MAPS.map((m,i)=>'<button class="step '+(i===robotIdx?"active ":"")+(st.robotDone[i]?"complete":"")+'" data-robot-level="'+i+'" '+(robotBusy?"disabled":"")+'>'+(st.robotDone[i]?"✓ ":"")+"Ниво "+(i+1)+'</button>').join("")+'</div><div class="robot-layout"><div>'+robotSvg()+'<div class="row" style="margin-top:12px"><span class="mini-badge">🤖 Начало</span><span class="mini-badge">✦ Цел</span><span class="mini-badge">▦ Стена</span></div></div><div class="subpanel" style="margin:0"><span class="mini-badge">'+escapeHtml(map.name)+'</span><h3 style="margin-top:15px">'+escapeHtml(map.desc)+'</h3><p>Команди: '+cmd.length+' / 70</p><div class="command-row">'+(cmd.length?cmd.map(a=>'<span class="command">'+a+'</span>').join(""):'<span class="subtle">Няма команди — използвай стрелките.</span>')+'</div><div class="dirpad"><button class="btn secondary up" data-dir="↑" '+(robotBusy?"disabled":"")+'>↑</button><button class="btn secondary left" data-dir="←" '+(robotBusy?"disabled":"")+'>←</button><button class="btn secondary down" data-dir="↓" '+(robotBusy?"disabled":"")+'>↓</button><button class="btn secondary right" data-dir="→" '+(robotBusy?"disabled":"")+'>→</button></div><div class="row"><button class="btn" data-act="run-robot" '+(robotBusy||!cmd.length?"disabled":"")+'>▶ Изпълни</button><button class="btn ghost small" data-act="undo-robot" '+(robotBusy||!cmd.length?"disabled":"")+'>↶</button><button class="btn ghost small" data-act="clear-robot" '+(robotBusy?"disabled":"")+'>Изчисти</button></div>'+feedback(robotNotice,robotNotice.startsWith("✓")?"success":"")+'</div></div><p class="subtle">Съвет: можеш да използваш и стрелките от клавиатурата. Командите се изпълняват последователно.</p>'}
-async function runRobot(){if(robotBusy)return;robotBusy=true;robotNotice="";const map=MAPS[robotIdx].cells;robotTrail=[origin(map)];render();let outcome="";for(let i=0;i<cmd.length;i++){await new Promise(ok=>setTimeout(ok,240));const d=dirs[cmd[i]],p=robotTrail[robotTrail.length-1],r=p[0]+d[0],c=p[1]+d[1];if(r<0||r>=map.length||c<0||c>=map[r].length||map[r][c]==="#"){outcome="⚠ Роботът срещна стена или граница при команда "+(i+1)+".";break}robotTrail.push([r,c]);$("mainContent").innerHTML=renderRobot();if(map[r][c]==="G"){outcome="✓ Успех! Достигна портала с "+(i+1)+" команди.";if(!st.robotDone[robotIdx]){st.robotDone[robotIdx]=true;tally()}break}}robotBusy=false;robotNotice=outcome||"⚠ Командите завършиха, но роботът не е при портала. Добави още стъпки.";render()}
+let robotIndex=0,robotKey=false,robotDoor=false,robotEnergy=new Set(),robotSpeed=270,robotFinished=false;
+function neededCrystals(map){let c=0;for(const row of map)for(const char of row)if(char==="E")c++;return c}
+function robotResetTrace(){robotTrail=[origin(MAPS[robotIdx].cells)];robotIndex=0;robotKey=false;robotDoor=false;robotEnergy=new Set();robotFinished=false}
+function setupRobot(i){robotIdx=i;cmd=[];robotNotice="";robotBusy=false;robotResetTrace()}
+function robotSvg(){
+ const map=MAPS[robotIdx].cells,pos=robotTrail[robotTrail.length-1],width=map[0].length;
+ return '<div class="robot-grid" style="grid-template-columns:repeat('+width+',minmax(0,1fr))">'+map.map((s,r)=>s.split("").map((k,c)=>{
+  const isBot=pos[0]===r&&pos[1]===c,passed=robotTrail.some(p=>p[0]===r&&p[1]===c);
+  const icon=isBot?"🤖":k==="#"?"▦":k==="G"?"✦":k==="E"?(robotEnergy.has(r+","+c)?"·":"💎"):k==="K"?(robotKey?"·":"🗝️"):k==="D"?(robotDoor?"🔓":"🔒"):passed?"·":"";
+  return '<div class="cell '+(k==="#"?"wall ":k==="G"?"goal ":k==="E"?"energy ":k==="K"?"key-cell ":k==="D"?"door-cell ":"")+(passed?"path ":"")+(isBot?"bot":"")+'" title="'+(isBot?"Робот":k==="#"?"Стена":k==="G"?"Портал":k==="E"?"Кристал":k==="K"?"Ключ":k==="D"?"Шлюз":"Празно")+'">'+icon+'</div>';
+ }).join("")).join("")+'</div>';
+}
+function renderRobot(){
+ const map=MAPS[robotIdx];
+ const complete=st.robotDone[robotIdx];
+ return heading(2,"Програмирай робота","Вече не е само лабиринт! Събирай кристали, отключвай врати и тествай кода стъпка по стъпка. Можеш да го поправяш колкото пъти пожелаеш.")+
+ '<div class="stepper">'+MAPS.map((m,i)=>'<button class="step '+(i===robotIdx?"active ":"")+(st.robotDone[i]?"complete":"")+'" data-robot-level="'+i+'" '+(robotBusy?"disabled":"")+'>'+(st.robotDone[i]?"✓ ":"")+"Ниво "+(i+1)+'</button>').join("")+'</div>'+
+ '<div class="robot-layout"><div>'+robotSvg()+'<div class="row" style="margin-top:12px"><span class="mini-badge">🤖 Робот</span><span class="mini-badge">✦ Портал</span><span class="mini-badge">▦ Стена</span>'+(neededCrystals(map.cells)?'<span class="mini-badge">💎 '+robotEnergy.size+'/'+neededCrystals(map.cells)+'</span>':"")+(map.cells.join("").includes("K")?'<span class="mini-badge">'+(robotKey?"🗝 Ключът е взет":"🗝 Намери ключа")+'</span>':"")+'</div></div>'+
+ '<div class="subpanel" style="margin:0"><span class="mini-badge">'+escapeHtml(map.theme)+' • '+escapeHtml(map.name)+'</span><h3 style="margin-top:15px">'+escapeHtml(map.desc)+'</h3>'+
+ '<p>Изпълнени команди: '+robotIndex+' / '+cmd.length+' · максимум 90</p><div class="command-row">'+(cmd.length?cmd.map((a,i)=>'<span class="command" style="'+(i<robotIndex?"background:#276858;":"")+'">'+a+'</span>').join(""):'<span class="subtle">Избери посоки, после натисни „Изпълни“ или „Една стъпка“.</span>')+'</div>'+
+ '<div class="dirpad"><button class="btn secondary up" data-dir="↑" '+(robotBusy?"disabled":"")+'>↑</button><button class="btn secondary left" data-dir="←" '+(robotBusy?"disabled":"")+'>←</button><button class="btn secondary down" data-dir="↓" '+(robotBusy?"disabled":"")+'>↓</button><button class="btn secondary right" data-dir="→" '+(robotBusy?"disabled":"")+'>→</button></div>'+
+ '<div class="row"><button class="btn" data-act="run-robot" '+(robotBusy||!cmd.length?"disabled":"")+'>▶ Изпълни</button><button class="btn secondary small" data-act="step-robot" '+(robotBusy||robotFinished||robotIndex>=cmd.length?"disabled":"")+'>⏭ Една стъпка</button><button class="btn ghost small" data-act="speed-robot" '+(robotBusy?"disabled":"")+'>⏱ '+(robotSpeed===550?"Бавно":robotSpeed===270?"Нормално":"Бързо")+'</button></div>'+
+ '<div class="row" style="margin-top:10px"><button class="btn ghost small" data-act="undo-robot" '+(robotBusy||!cmd.length?"disabled":"")+'>↶ Премахни</button><button class="btn ghost small" data-act="clear-robot" '+(robotBusy?"disabled":"")+'>↻ Изчисти</button><button class="btn ghost small" data-act="hint-robot">💡 Подсказка</button>'+(complete&&robotIdx<MAPS.length-1?'<button class="btn gold small" data-act="next-robot">Следващо ниво →</button>':"")+'</div>'+
+ feedback(robotNotice,robotNotice.startsWith("✓")?"success":robotNotice.startsWith("⚠")?"error":"")+'</div></div><p class="subtle">Управление със стрелките на клавиатурата също работи. „Една стъпка“ е режим за откриване на грешки (debugging).</p>';
+}
+function robotAdvance(){
+ if(robotIndex>=cmd.length)return "empty";
+ const map=MAPS[robotIdx].cells,d=dirs[cmd[robotIndex]],p=robotTrail[robotTrail.length-1],r=p[0]+d[0],c=p[1]+d[1],step=robotIndex+1;
+ if(r<0||r>=map.length||c<0||c>=map[r].length||map[r][c]==="#"){
+  robotNotice="⚠ Команда "+step+": препятствие или излизане извън картата. Поправи алгоритъма.";return "blocked";
+ }
+ const cell=map[r][c];
+ if(cell==="D"&&!robotKey){robotNotice="⚠ Шлюзът е заключен! Намери ключа преди команда "+step+".";return "blocked"}
+ robotIndex++;
+ robotTrail.push([r,c]);
+ if(cell==="K")robotKey=true;
+ if(cell==="E")robotEnergy.add(r+","+c);
+ if(cell==="D")robotDoor=true;
+ if(cell==="G"){
+   if(robotEnergy.size<neededCrystals(map)){robotNotice="⚠ Достигна портала, но липсват "+(neededCrystals(map)-robotEnergy.size)+" кристала. Редактирай маршрута.";return "blocked"}
+   if(map.join("").includes("D")&&!robotDoor){robotNotice="⚠ Шлюзът не е бил отключен. Премини през него.";return "blocked"}
+   robotFinished=true;
+   robotNotice="✓ Порталът е активиран с "+robotIndex+" команди! "+(robotKey?"Ключът е използван. ":"")+(robotEnergy.size?"Кристалите са събрани.":"");
+   if(!st.robotDone[robotIdx]){st.robotDone[robotIdx]=true;tally()}
+   return "goal";
+ }
+ return "moved";
+}
+async function runRobot(){
+ if(robotBusy||!cmd.length)return;
+ robotBusy=true;robotNotice="";robotResetTrace();render();
+ let result="empty";
+ for(let i=0;i<cmd.length;i++){
+  await new Promise(ok=>setTimeout(ok,robotSpeed));
+  result=robotAdvance();
+  if(view==="mission"&&window.mission===2)$("mainContent").innerHTML=renderRobot();
+  if(result==="blocked"||result==="goal")break;
+ }
+ robotBusy=false;
+ if(result==="moved"||result==="empty")robotNotice="⚠ Програмата завърши, но порталът още не е активиран. Добави или поправи команди.";
+ render();
+}
+function robotStep(){
+ if(robotBusy)return;
+ const result=robotAdvance();
+ if(result==="moved")robotNotice="Команда "+robotIndex+" е изпълнена. Следващата команда е готова.";
+ if(result==="empty")robotNotice="⚠ Няма повече команди. Добави нови стрелки.";
+ render();
+}
+
 function setupFlow(i){flowIdx=i;flowPick="";flowPlaced={};flowNotice=""}
 function renderFlow(){const task=FLOW[flowIdx],parts=Object.fromEntries(task.p);const shape=(key,shape,label)=>'<div class="flow-unit">'+(label?'<span class="flow-label">'+label+'</span>':"")+'<button class="flow-box '+shape+'" data-flow-slot="'+key+'" title="Избери блок от банката и натисни тук">'+escapeHtml(flowPlaced[key]||("＋ "+({start:"Начало",read:"Вход",condition:"Условие",yes:"Да",no:"Не",end:"Край"}[key])))+'</button></div>';
 const used=Object.values(flowPlaced);
@@ -159,7 +228,7 @@ function downloadBlob(blob,name){const u=URL.createObjectURL(blob);const a=docum
 function modal(markup){$("modalRoot").innerHTML='<div class="overlay" role="presentation"><div class="modal" role="dialog" aria-modal="true">'+markup+'</div></div>'}
 function closeModal(){if(st.nick)$("modalRoot").innerHTML=""}
 function introModal(){const p=new URLSearchParams(location.search).get("room")||st.room||"";modal('<div class="modal-header"><div><div class="tagline">НОВА МИСИЯ</div><h2>Добре дошъл на борда! 🚀</h2></div>'+(st.nick?'<button class="close" data-act="close-modal">×</button>':"")+'</div><p>Избери псевдоним. Не използвай истински фамилии или имейл адреси.</p><form id="startForm"><div class="field"><label for="nickname">Твоят псевдоним</label><input id="nickname" required minlength="2" maxlength="32" autocomplete="off" placeholder="Например: Логик17" value="'+escapeHtml(st.nick)+'"></div><div class="field"><label for="group">Клас или група (по желание)</label><input id="group" maxlength="26" placeholder="Например: 10А" value="'+escapeHtml(st.group)+'"></div><div class="field"><label for="classCode">Код на учителската стая (по желание)</label><input id="classCode" maxlength="8" placeholder="Например: 7KMPQ4" value="'+escapeHtml(p)+'"></div><button class="btn" type="submit">Започни приключението →</button><div id="entryError" class="subtle" role="status"></div></form><button class="btn ghost" style="margin-top:10px" data-act="teacher-access">♙ Аз съм учител</button><div class="notice">Ако нямаш код, остави полето празно и играй самостоятелно. Напредъкът се пази на това устройство.</div>')}
-function helpModal(){modal('<div class="modal-header"><h2>Как се играе? ✦</h2><button class="close" data-act="close-modal">×</button></div><p>Премини през петте мисии по ред. Получаваш XP за верните решения и отключваш следващия модул. Грешките не отнемат точки.</p><div class="subpanel"><div class="statline">▦ Подреди алгоритъма <b>2 задачи</b></div><div class="statline">⌕ Открий грешката <b>7 казуса</b></div><div class="statline">♟ Програмирай робота <b>3 нива</b></div><div class="statline">◇ Построй блок-схема <b>2 схеми</b></div><div class="statline">✧ Финално предизвикателство <b>4 въпроса + практика</b></div></div><p>На финала можеш да изтеглиш отчет и да принтираш сертификат. Учителят може да създаде онлайн стая със споделен код.</p><button class="btn" data-act="close-modal">Разбрах!</button>')}
+function helpModal(){modal('<div class="modal-header"><h2>Как се играе? ✦</h2><button class="close" data-act="close-modal">×</button></div><p>Премини през петте мисии по ред. Получаваш XP за верните решения и отключваш следващия модул. Грешките не отнемат точки.</p><div class="subpanel"><div class="statline">▦ Подреди алгоритъма <b>2 задачи</b></div><div class="statline">⌕ Открий грешката <b>7 казуса</b></div><div class="statline">♟ Програмирай робота <b>5 приключения</b></div><div class="statline">◇ Построй блок-схема <b>2 схеми</b></div><div class="statline">✧ Финално предизвикателство <b>4 въпроса + практика</b></div></div><p>На финала можеш да изтеглиш отчет и да принтираш сертификат. Учителят може да създаде онлайн стая със споделен код.</p><button class="btn" data-act="close-modal">Разбрах!</button>')}
 function reviewModal(i){const s=board&&board.students[i];if(!s)return;const f=s.final||{};modal('<div class="modal-header"><h2>Алгоритъм на '+escapeHtml(s.name)+'</h2><button class="close" data-act="close-modal">×</button></div><div class="subpanel"><strong>Задача:</strong><p>'+escapeHtml(f.task||"—")+'</p><strong>Вход:</strong><p>'+escapeHtml(f.input||"—")+'</p><strong>Стъпки:</strong><p style="white-space:pre-wrap">'+escapeHtml(f.steps||"—")+'</p><strong>Изход:</strong><p>'+escapeHtml(f.output||"—")+'</p></div><div class="notice">Учителят проверява дали описаният алгоритъм е логически верен и достатъчно ясен.</div>')}
 function clickTile(action,idx,id){if(action==="add"){const at=orderPool.indexOf(id);if(at<0)return;orderPool.splice(at,1);orderSeq.push(id)}else if(action==="remove"){if(idx>=orderSeq.length)return;orderPool.push(orderSeq.splice(idx,1)[0])}else if(action==="up"||action==="down"){const j=idx+(action==="up"?-1:1);if(j<0||j>=orderSeq.length)return;[orderSeq[idx],orderSeq[j]]=[orderSeq[j],orderSeq[idx]]}orderNotice="";render()}
 async function handleClick(e){
@@ -170,7 +239,7 @@ if(b.dataset.order!==undefined){clickTile(b.dataset.order,Number(b.dataset.index
 if(b.dataset.prop!==undefined){propIdx=Number(b.dataset.prop);propNotice="";render();return}
 if(b.dataset.propAnswer!==undefined){const q=activeProperty().q,ans=Number(b.dataset.propAnswer);if(!st.propDone[activeProperty().concept]){if(ans===q.correct){st.propDone[activeProperty().concept]=true;propNotice="";tally();render()}else{propNotice="Не съвсем. Помисли за определението на свойството и опитай пак.";render()}}return}
 if(b.dataset.robotLevel!==undefined){if(robotBusy)return;setupRobot(Number(b.dataset.robotLevel));render();return}
-if(b.dataset.dir!==undefined){if(robotBusy||cmd.length>=70)return;cmd.push(b.dataset.dir);robotTrail=[origin(MAPS[robotIdx].cells)];robotNotice="";render();return}
+if(b.dataset.dir!==undefined){if(robotBusy||cmd.length>=90)return;cmd.push(b.dataset.dir);robotResetTrace();robotNotice="";render();return}
 if(b.dataset.flowLevel!==undefined){setupFlow(Number(b.dataset.flowLevel));render();return}
 if(b.dataset.flowPick!==undefined){flowPick=b.dataset.flowPick;render();return}
 if(b.dataset.flowSlot!==undefined){if(!flowPick)return;const part=FLOW[flowIdx].p.find(p=>p[0]===flowPick);if(part){for(const key in flowPlaced)if(flowPlaced[key]===part[1])delete flowPlaced[key];flowPlaced[b.dataset.flowSlot]=part[1]}flowPick="";flowNotice="";render();return}
@@ -190,8 +259,12 @@ case "reset-order":setupOrder(orderIdx);render();break;
 case "prop-next":{const next=st.propOrder.findIndex((c,i)=>i>propIdx&&!st.propDone[c]);const first=st.propOrder.findIndex(c=>!st.propDone[c]);if(next<0&&first<0){go("mission",2);break}propIdx=next<0?first:next;propNotice="";render();break}
 case "prop-hint":propNotice="Подсказка: сравни конкретния проблем с определенията за свойствата от учебника.";render();break;
 case "run-robot":await runRobot();break;
-case "undo-robot":cmd.pop();robotTrail=[origin(MAPS[robotIdx].cells)];robotNotice="";render();break;
-case "clear-robot":cmd=[];robotTrail=[origin(MAPS[robotIdx].cells)];robotNotice="";render();break;
+case "step-robot":robotStep();break;
+case "speed-robot":robotSpeed=robotSpeed===550?270:robotSpeed===270?100:550;render();break;
+case "hint-robot":{const map=MAPS[robotIdx].cells;robotNotice=map.join("").includes("K")&&!robotKey?"💡 Първо намери символа 🗝️. Шлюзът не се отваря без ключ.":neededCrystals(map)>robotEnergy.size?"💡 Преди да стигнеш портала, посети всяко поле с 💎.":"💡 Планирай безопасен път до ✦. Пробвай „Една стъпка“, за да откриеш грешките.";render();break}
+case "next-robot":if(st.robotDone[robotIdx]&&robotIdx<MAPS.length-1){setupRobot(robotIdx+1);render()}break;
+case "undo-robot":cmd.pop();robotResetTrace();robotNotice="";render();break;
+case "clear-robot":cmd=[];robotResetTrace();robotNotice="";render();break;
 case "check-flow":{const task=FLOW[flowIdx];if(task.p.every(([key,text])=>flowPlaced[key]===text)){if(!st.flowDone[flowIdx]){st.flowDone[flowIdx]=true;tally()}flowNotice="✓ Блок-схемата е вярна! И двата клона на условието са поставени правилно."}else flowNotice="Някои блокове не са на правилното място. Провери условието и клоновете ДА/НЕ.";render();break}
 case "clear-flow":setupFlow(flowIdx);render();break;
 case "submit-free":{const f=st.free;const steps=f.steps.split(/\n/).filter(x=>x.replace(/^\s*\d+[.)]\s*/,"").trim().length>=6);if(f.task.trim().length<8||f.input.trim().length<3||f.output.trim().length<3||steps.length<3){finalNotice="Попълни задачата, входа, изхода и поне 3 смислени стъпки на отделни редове.";render();break}st.freeDone=true;finalNotice="✓ Структурата е предадена. Учителят ще провери смисловата правилност.";tally();render();break}
@@ -206,7 +279,7 @@ case "export-csv":await exportCsv();break;
 async function handleSubmit(e){if(e.target.id!=="startForm")return;e.preventDefault();const nick=$("nickname").value.trim(),group=$("group").value.trim(),code=$("classCode").value.trim().toUpperCase();if(nick.length<2)return;const err=$("entryError");err.textContent="Свързване...";try{st=mk();ensureVariations();st.nick=nick;st.group=group;if(code)await joinRoom(code,nick);$("modalRoot").innerHTML="";try{history.replaceState(null,"",location.pathname)}catch(e){}persist();go("home");if(code)notify("Успешно присъединяване към стая "+st.room)}catch(error){err.textContent=error.message+" Ако нямаш код, изтрий го и започни самостоятелно."}}
 function onDrop(e){const zone=e.target.closest("[data-drop]");if(!zone||view!=="mission"||window.mission!==0)return;e.preventDefault();try{const d=JSON.parse(e.dataTransfer.getData("application/json"));const id=Number(d.id);if(d.from==="pool"&&zone.dataset.drop==="seq")clickTile("add",0,id);else if(d.from==="seq"&&zone.dataset.drop==="pool"){const i=orderSeq.indexOf(id);if(i>=0)clickTile("remove",i,0)}else if(d.from==="seq"&&zone.dataset.drop==="seq"){let i=orderSeq.indexOf(id);const tile=e.target.closest(".tile");let to=tile?orderSeq.indexOf(Number(tile.dataset.tile)):orderSeq.length-1;if(i>=0&&to>=0&&i!==to){orderSeq.splice(i,1);orderSeq.splice(to,0,id);render()}}}catch(err){}}
 async function connect(){try{const r=await api("/api/health");online=!!r.ok;$("connection").textContent="◉ Онлайн станция"}catch(e){online=false;$("connection").textContent="◌ Самостоятелна игра"}}
-function init(){window.mission=0;setupOrder(0);setupRobot(0);setupFlow(0);render();connect();if(!st.nick)introModal();document.addEventListener("click",handleClick);document.addEventListener("submit",handleSubmit);$("teacherButton").addEventListener("click",()=>{go("teacher");if(teacher)getBoard()});$("helpButton").addEventListener("click",helpModal);$("homeButton").addEventListener("click",()=>go("home"));$("summaryButton").addEventListener("click",()=>go("summary"));document.addEventListener("input",e=>{const fields={freeTask:"task",freeInput:"input",freeSteps:"steps",freeOutput:"output"};if(fields[e.target.id]){st.free[fields[e.target.id]]=e.target.value;try{localStorage.setItem(STORE,JSON.stringify(st))}catch(err){}}});document.addEventListener("dragstart",e=>{const tile=e.target.closest("[data-tile]");if(tile&&e.dataTransfer)e.dataTransfer.setData("application/json",JSON.stringify({id:tile.dataset.tile,from:tile.dataset.origin}))});document.addEventListener("dragover",e=>{if(e.target.closest("[data-drop]"))e.preventDefault()});document.addEventListener("drop",onDrop);document.addEventListener("keydown",e=>{if(view!=="mission"||window.mission!==2||robotBusy||["INPUT","TEXTAREA"].includes(document.activeElement.tagName))return;const codes={ArrowUp:"↑",ArrowDown:"↓",ArrowLeft:"←",ArrowRight:"→"};if(codes[e.key]&&cmd.length<70){e.preventDefault();cmd.push(codes[e.key]);render()}});setInterval(()=>{if(view==="teacher"&&teacher)getBoard()},5000)}
+function init(){window.mission=0;setupOrder(0);setupRobot(0);setupFlow(0);render();connect();if(!st.nick)introModal();document.addEventListener("click",handleClick);document.addEventListener("submit",handleSubmit);$("teacherButton").addEventListener("click",()=>{go("teacher");if(teacher)getBoard()});$("helpButton").addEventListener("click",helpModal);$("homeButton").addEventListener("click",()=>go("home"));$("summaryButton").addEventListener("click",()=>go("summary"));document.addEventListener("input",e=>{const fields={freeTask:"task",freeInput:"input",freeSteps:"steps",freeOutput:"output"};if(fields[e.target.id]){st.free[fields[e.target.id]]=e.target.value;try{localStorage.setItem(STORE,JSON.stringify(st))}catch(err){}}});document.addEventListener("dragstart",e=>{const tile=e.target.closest("[data-tile]");if(tile&&e.dataTransfer)e.dataTransfer.setData("application/json",JSON.stringify({id:tile.dataset.tile,from:tile.dataset.origin}))});document.addEventListener("dragover",e=>{if(e.target.closest("[data-drop]"))e.preventDefault()});document.addEventListener("drop",onDrop);document.addEventListener("keydown",e=>{if(view!=="mission"||window.mission!==2||robotBusy||["INPUT","TEXTAREA"].includes(document.activeElement.tagName))return;const codes={ArrowUp:"↑",ArrowDown:"↓",ArrowLeft:"←",ArrowRight:"→"};if(codes[e.key]&&cmd.length<90){e.preventDefault();cmd.push(codes[e.key]);robotResetTrace();render()}});setInterval(()=>{if(view==="teacher"&&teacher)getBoard()},5000)}
 ensureVariations();
 init();
 })();

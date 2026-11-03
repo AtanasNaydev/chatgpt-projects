@@ -53,6 +53,18 @@ const FINALQ=[
  {q:"Кое най-точно описва алгоритъм?",a:["Произволен текст","Само компютърна програма","Краен ред от ясни стъпки за решаване на задача","Списък с имена"],correct:2,why:"Алгоритъмът е ясно зададена последователност от действия, която решава задача."},
  {q:"Кога използваме повторение?",a:["Когато няма вход","Когато действия се изпълняват многократно при определено правило","Само когато програмата е грешна","Когато приключваме програмата"],correct:1,why:"Повторението организира многократно изпълнение на действия по зададено правило."}
 ];
+const MORE_FINALQ=[
+ {q:"Коя фигура в блок-схема използваме за въвеждане на данни?",a:["Ромб","Елипса","Успоредник","Петоъгълник"],correct:2,why:"Входните и изходните данни се представят с успоредник."},
+ {q:"Коя инструкция е най-ясно определена за робот?",a:["Мръдни малко напред.","Направи каквото сметнеш.","Отмести се някъде.","Премести се с точно една клетка надясно."],correct:3,why:"Точната посока и разстояние позволяват на изпълнителя да действа еднозначно."},
+ {q:"Какво прави проверката „ако x > 10“?",a:["Сравнява x с 10 и избира клон.","Увеличава x с 10.","Спира винаги алгоритъма.","Въвежда стойността 10."],correct:0,why:"Условието води по единия или другия клон според резултата от проверката."},
+ {q:"Кога е нарушена крайността на алгоритъм?",a:["Когато има повече от три стъпки.","Когато няма възможност за завършване.","Когато има входни данни.","Когато получаваме резултат."],correct:1,why:"За крайност е необходимо изпълнението да завършва след краен брой стъпки."},
+ {q:"Кое е изход на алгоритъм, който събира две числа?",a:["Двете въведени числа","Броят въпроси","Изчислената сума","Избраният език"],correct:2,why:"Изходът е резултатът на алгоритъма — изчислената сума."}
+];
+const allFinalQuestions=()=>FINALQ.concat(MORE_FINALQ);
+const FLOW_DECOYS=[
+ ["Изведи „нула“","n > 5?"],
+ ["Въведи y","x == 100?"]
+];
 const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
 let st=mk();
 try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===3)st=Object.assign(mk(),o)}catch(e){}
@@ -82,7 +94,7 @@ function ensureVariations(){
  if(!Array.isArray(st.propOrder)||st.propOrder.length!==7)st.propOrder=shuffle([0,1,2,3,4,5,6]);
  if(!Array.isArray(st.propPerm)||st.propPerm.length!==7)st.propPerm=Array.from({length:7},()=>shuffle([0,1,2,3]));
  if(!Array.isArray(st.propVariants)||st.propVariants.length!==7)st.propVariants=Array.from({length:7},()=>Math.random()<.5?0:1);
- if(!Array.isArray(st.quizOrder)||st.quizOrder.length!==4)st.quizOrder=shuffle([0,1,2,3]);
+ if(!Array.isArray(st.quizOrder)||st.quizOrder.length!==4)st.quizOrder=shuffle(Array.from({length:allFinalQuestions().length},(_,i)=>i)).slice(0,4);
  if(!Array.isArray(st.quizPerm)||st.quizPerm.length!==4)st.quizPerm=Array.from({length:4},()=>shuffle([0,1,2,3]));
  if(!Array.isArray(st.flowBankOrder)||st.flowBankOrder.length!==2)st.flowBankOrder=[shuffle([0,1,2,3,4,5,6,7]),shuffle([0,1,2,3,4,5,6,7])];
  try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){}
@@ -197,21 +209,44 @@ function robotStep(){
 }
 
 function setupFlow(i){flowIdx=i;flowPick="";flowPlaced={};flowNotice=""}
-function renderFlow(){const task=FLOW[flowIdx],parts=Object.fromEntries(task.p);const shape=(key,shape,label)=>'<div class="flow-unit">'+(label?'<span class="flow-label">'+label+'</span>':"")+'<button class="flow-box '+shape+'" data-flow-slot="'+key+'" title="Избери блок от банката и натисни тук">'+escapeHtml(flowPlaced[key]||("＋ "+({start:"Начало",read:"Вход",condition:"Условие",yes:"Да",no:"Не",end:"Край"}[key])))+'</button></div>';
-const used=Object.values(flowPlaced);
-return heading(3,"Построй блок-схема","Блок-схемата показва логиката на алгоритъма чрез фигури. Избери плочка от банката и след това място в схемата.")+
- '<div class="stepper">'+FLOW.map((t,i)=>'<button class="step '+(i===flowIdx?"active ":"")+(st.flowDone[i]?"complete":"")+'" data-flow-level="'+i+'">'+(st.flowDone[i]?"✓ ":"")+"Схема "+(i+1)+'</button>').join("")+'</div><div class="subpanel"><h3>'+escapeHtml(task.title)+'</h3><p>'+escapeHtml(task.desc)+'</p><div class="mini-badge">Елипса = начало/край • Успоредник = вход/изход • Ромб = условие</div><div class="bank">'+task.p.map(pair=>'<button class="'+(flowPick===pair[0]?"selected ":"")+(used.includes(pair[1])?"used":"")+'" data-flow-pick="'+pair[0]+'">'+escapeHtml(pair[1])+'</button>').join("")+'</div></div>'+
- '<div class="flow-canvas">'+shape("start","pill")+"<div class='flow-arrow'>↓</div>"+shape("read","input")+"<div class='flow-arrow'>↓</div>"+shape("condition","diamond")+'<div class="flow-branches"><div>'+shape("yes","input","ДА")+'</div><div>'+shape("no","input","НЕ")+'</div></div><div class="flow-arrow">↘　↙</div><div class="flow-end">'+shape("end","pill")+'</div></div>'+
- feedback(flowNotice,flowNotice.startsWith("✓")?"success":"error")+'<div class="row" style="margin-top:17px"><button class="btn" data-act="check-flow">Провери блок-схемата</button><button class="btn secondary" data-act="clear-flow">↻ Изчисти</button><span class="mini-badge">Попълнени '+Object.keys(flowPlaced).length+' / 6</span></div>'}
-function renderFinal(){return heading(4,"Финално предизвикателство","Провери знанията си и създай свой алгоритъм. Завършването на свободната задача носи точки за структура, а учителят проверява съдържанието.")+
- '<div class="subpanel"><h3>Част А · Четири въпроса × 2 XP</h3>'+FINALQ.map((q,i)=>'<div class="question"><strong>'+(i+1)+'. '+escapeHtml(q.q)+'</strong><div class="choice-grid">'+q.a.map((a,j)=>'<button class="choice '+(st.quizDone[i]&&q.correct===j?"correct":"")+'" data-final-q="'+i+'" data-final-a="'+j+'" '+(st.quizDone[i]?"disabled":"")+'>'+escapeHtml(a)+'</button>').join("")+'</div>'+(st.quizDone[i]?feedback("✓ "+q.why,"success"):"")+'</div>').join("")+'</div>'+
- '<div class="subpanel light"><h3>Част Б · Създай свой алгоритъм · 12 XP</h3><p>Избери лесен процес от ежедневието. Опиши входа, поне три отделни стъпки и изхода. Например: подготовка за онлайн урок, подреждане на чанта, намиране на най-голямо число.</p>'+
- '<div class="field"><label for="freeTask">Каква задача решава алгоритъмът?</label><input id="freeTask" maxlength="230" value="'+escapeHtml(st.free.task)+'" placeholder="Например: проверка дали числото е положително"></div>'+
- '<div class="field"><label for="freeInput">Входни данни</label><input id="freeInput" maxlength="230" value="'+escapeHtml(st.free.input)+'" placeholder="Например: едно число"></div>'+
- '<div class="field"><label for="freeSteps">Инструкции — всяка на нов ред</label><textarea id="freeSteps" maxlength="2200" placeholder="1. Въведи числото&#10;2. Провери условието&#10;3. Изведи резултата">'+escapeHtml(st.free.steps)+'</textarea></div>'+
- '<div class="field"><label for="freeOutput">Изход / резултат</label><input id="freeOutput" maxlength="230" value="'+escapeHtml(st.free.output)+'" placeholder="Например: положително / неположително"></div>'+
- '<div class="notice">⚠ Автоматичната проверка оценява само наличието на структурни елементи. Не може да установи дали алгоритъмът е логически правилен — тази част преглежда учителят.</div>'+feedback(finalNotice,finalNotice.startsWith("✓")?"success":"error")+
- '<div class="row"><button class="btn" data-act="submit-free" '+(st.freeDone?"disabled":"")+'>✦ Предай алгоритъма</button><span class="mini-badge">'+(st.freeDone?"✓ Предаден за преглед":"Още не е предаден")+'</span></div></div>'}
+function renderFlow(){
+ const task=FLOW[flowIdx];
+ const parts=task.p.concat(FLOW_DECOYS[flowIdx].map((text,i)=>["decoy"+i,text]));
+ const used=Object.values(flowPlaced);
+ const shape=(key,shapeName,label)=>'<div class="flow-unit">'+(label?'<span class="flow-label">'+label+'</span>':"")+
+ '<button class="flow-box '+shapeName+'" data-flow-slot="'+key+'" title="Избери плочка от банката и постави в този блок">'+escapeHtml(flowPlaced[key]||"＋ празен блок")+'</button></div>';
+ const bank=st.flowBankOrder[flowIdx].map(i=>parts[i]);
+ return heading(3,"Построй блок-схема","Сега плочките са разбъркани, има и две подвеждащи инструкции! Построй правилните връзки на алгоритъма.")+
+ '<div class="stepper">'+FLOW.map((t,i)=>'<button class="step '+(i===flowIdx?"active ":"")+(st.flowDone[i]?"complete":"")+'" data-flow-level="'+i+'">'+(st.flowDone[i]?"✓ ":"")+"Схема "+(i+1)+'</button>').join("")+'</div>'+
+ '<div class="subpanel"><h3>'+escapeHtml(task.title)+'</h3><p>'+escapeHtml(task.desc)+'</p>'+
+ '<div class="mini-badge">Елипса = начало/край • Успоредник = данни • Ромб = условие</div>'+
+ '<p class="subtle" style="margin-top:12px">Има 8 плочки, но само 6 места. Две са ненужни за този алгоритъм. Докосни плочка и после празен блок.</p>'+
+ '<div class="bank">'+bank.map(([key,text])=>'<button class="'+(flowPick===key?"selected ":"")+(used.includes(text)?"used":"")+'" data-flow-pick="'+key+'">'+escapeHtml(text)+'</button>').join("")+'</div></div>'+
+ '<div class="flow-canvas">'+shape("start","pill")+"<div class='flow-arrow'>↓</div>"+shape("read","input")+"<div class='flow-arrow'>↓</div>"+shape("condition","diamond")+
+ '<div class="flow-branches"><div>'+shape("yes","input","ДА")+'</div><div>'+shape("no","input","НЕ")+'</div></div>'+
+ '<div class="flow-arrow">↘　↙</div><div class="flow-end">'+shape("end","pill")+'</div></div>'+
+ feedback(flowNotice,flowNotice.startsWith("✓")?"success":flowNotice.startsWith("⚠")?"error":"")+
+ '<div class="row" style="margin-top:17px"><button class="btn" data-act="check-flow">Провери блок-схемата</button>'+
+ '<button class="btn secondary" data-act="clear-flow">↻ Изчисти</button>'+
+ '<button class="btn ghost" data-act="hint-flow">💡 Подсказка</button><span class="mini-badge">Поставени '+Object.keys(flowPlaced).length+' / 6</span></div>'+
+ (st.flowDone[flowIdx]?'<div class="subpanel light"><h3>🧪 Изпитай алгоритъма с число</h3><div class="row"><input class="text-input" type="number" id="flowExample" value="4" style="max-width:150px" aria-label="Примерно число"><button class="btn gold" data-act="simulate-flow">▶ Тествай блок-схемата</button></div></div>':"");
+}
+function renderFinal(){
+ return heading(4,"Финално предизвикателство","Въпросите и отговорите се разместват при всяка нова игра. След теста изгради собствен алгоритъм и го предай за преглед.")+
+ '<div class="subpanel"><h3>Част А · 4 случайни въпроса × 2 XP</h3>'+
+ st.quizOrder.map((index,i)=>{const q=allFinalQuestions()[index];return '<div class="question"><strong>'+(i+1)+'. '+escapeHtml(q.q)+'</strong><div class="choice-grid">'+
+ st.quizPerm[i].map((j,display)=>'<button class="choice '+(st.quizDone[i]&&q.correct===j?"correct":"")+'" data-final-q="'+i+'" data-final-a="'+j+'" '+(st.quizDone[i]?"disabled":"")+'><b>'+String.fromCharCode(65+display)+'.</b> '+escapeHtml(q.a[j])+'</button>').join("")+
+ '</div>'+(st.quizDone[i]?feedback("✓ "+q.why,"success"):"")+'</div>'}).join("")+'</div>'+
+ '<div class="subpanel light"><h3>Част Б · Създай свой алгоритъм · 12 XP</h3><p>Мисия: помогни на станцията, като опишеш нов алгоритъм. Например „провери температурата“, „избери по-голямото число“, „подготви робота за зареждане“.</p>'+
+ '<div class="field"><label for="freeTask">Каква задача решава алгоритъмът?</label><input id="freeTask" maxlength="230" value="'+escapeHtml(st.free.task)+'" placeholder="Например: проверка дали температурата е опасна"></div>'+
+ '<div class="field"><label for="freeInput">Входни данни</label><input id="freeInput" maxlength="230" value="'+escapeHtml(st.free.input)+'" placeholder="Например: измерена температура"></div>'+
+ '<div class="field"><label for="freeSteps">Точни инструкции — една на ред</label><textarea id="freeSteps" maxlength="2200" placeholder="1. Прочети температурата&#10;2. Провери дали е над 40&#10;3. Покажи предупреждение или нормален статус">'+escapeHtml(st.free.steps)+'</textarea></div>'+
+ '<div class="field"><label for="freeOutput">Изход / резултат</label><input id="freeOutput" maxlength="230" value="'+escapeHtml(st.free.output)+'" placeholder="Например: безопасно / опасно"></div>'+
+ '<div class="notice">⚠ Получаваш 12 XP за попълнена структура. Смисловата правилност се преглежда от учителя — това не е автоматична оценка.</div>'+
+ feedback(finalNotice,finalNotice.startsWith("✓")?"success":"error")+
+ '<div class="row"><button class="btn" data-act="submit-free" '+(st.freeDone?"disabled":"")+'>✦ Предай алгоритъма</button><span class="mini-badge">'+(st.freeDone?"✓ Изпратен за преглед":"Очаква алгоритъм")+'</span></div></div>';
+}
+
 function summary(){return '<div class="trophy"><div class="trophy-icon">'+(countDone()===5?"🏆":"🛰️")+'</div><div class="tagline">'+(countDone()===5?"МИСИЯТА Е ИЗПЪЛНЕНА":"ТЕКУЩ РЕЗУЛТАТ")+'</div><h2>'+escapeHtml(st.nick||"Командире")+', '+(countDone()===5?"спаси станцията!":"продължавай!")+'</h2><div class="trophy-score">'+score()+' / 100 XP</div><p>'+countDone()+' от 5 възстановени модула</p></div>'+
  '<div class="subpanel"><h3>Отчет от мисиите</h3>'+M.map((m,i)=>'<div class="statline"><span>'+m.icon+' '+escapeHtml(m.title)+'</span><strong>'+st.points[i]+' / 20 XP '+(st.done[i]?"✓":"")+'</strong></div>').join("")+'</div>'+
  '<div class="subpanel"><h3>Спечелени отличия</h3><div class="row">'+M.map((m,i)=>'<span class="mini-badge" style="opacity:'+(st.done[i]?"1":".38")+'">'+(st.done[i]?"★ ":"◇ ")+escapeHtml(m.badge)+'</span>').join("")+'</div></div>'+
@@ -244,8 +279,8 @@ if(b.dataset.robotLevel!==undefined){if(robotBusy)return;setupRobot(Number(b.dat
 if(b.dataset.dir!==undefined){if(robotBusy||cmd.length>=90)return;cmd.push(b.dataset.dir);robotResetTrace();robotNotice="";render();return}
 if(b.dataset.flowLevel!==undefined){setupFlow(Number(b.dataset.flowLevel));render();return}
 if(b.dataset.flowPick!==undefined){flowPick=b.dataset.flowPick;render();return}
-if(b.dataset.flowSlot!==undefined){if(!flowPick)return;const part=FLOW[flowIdx].p.find(p=>p[0]===flowPick);if(part){for(const key in flowPlaced)if(flowPlaced[key]===part[1])delete flowPlaced[key];flowPlaced[b.dataset.flowSlot]=part[1]}flowPick="";flowNotice="";render();return}
-if(b.dataset.finalQ!==undefined){const i=Number(b.dataset.finalQ),a=Number(b.dataset.finalA);if(st.quizDone[i])return;if(a===FINALQ[i].correct){st.quizDone[i]=true;tally();render()}else notify("Не е този отговор. Опитай отново.");return}
+if(b.dataset.flowSlot!==undefined){if(!flowPick)return;const part=FLOW[flowIdx].p.concat(FLOW_DECOYS[flowIdx].map((text,i)=>["decoy"+i,text])).find(p=>p[0]===flowPick);if(part){for(const key in flowPlaced)if(flowPlaced[key]===part[1])delete flowPlaced[key];flowPlaced[b.dataset.flowSlot]=part[1]}flowPick="";flowNotice="";render();return}
+if(b.dataset.finalQ!==undefined){const i=Number(b.dataset.finalQ),a=Number(b.dataset.finalA);if(st.quizDone[i])return;if(a===allFinalQuestions()[st.quizOrder[i]].correct){st.quizDone[i]=true;tally();render()}else notify("Не е този отговор. Опитай отново.");return}
 if(b.dataset.review!==undefined){reviewModal(Number(b.dataset.review));return}
 switch(b.dataset.act){
 case "home":go("home");break;
@@ -268,8 +303,10 @@ case "hint-robot":{const map=MAPS[robotIdx].cells;robotNotice=map.join("").inclu
 case "next-robot":if(st.robotDone[robotIdx]&&robotIdx<MAPS.length-1){setupRobot(robotIdx+1);render()}break;
 case "undo-robot":cmd.pop();robotResetTrace();robotNotice="";render();break;
 case "clear-robot":cmd=[];robotResetTrace();robotNotice="";render();break;
-case "check-flow":{const task=FLOW[flowIdx];if(task.p.every(([key,text])=>flowPlaced[key]===text)){if(!st.flowDone[flowIdx]){st.flowDone[flowIdx]=true;tally()}flowNotice="✓ Блок-схемата е вярна! И двата клона на условието са поставени правилно."}else flowNotice="Някои блокове не са на правилното място. Провери условието и клоновете ДА/НЕ.";render();break}
+case "check-flow":{const task=FLOW[flowIdx];if(task.p.every(([key,text])=>flowPlaced[key]===text)){if(!st.flowDone[flowIdx]){st.flowDone[flowIdx]=true;tally()}flowNotice="✓ Блок-схемата е вярна! И двата клона на условието са поставени правилно."}else flowNotice="⚠ Има неправилно поставени блокове. Провери условието, формите и клоновете ДА/НЕ.";render();break}
 case "clear-flow":setupFlow(flowIdx);render();break;
+case "hint-flow":flowNotice="Подсказка: елипсите са за Начало и Край. В успоредника се въвеждат или извеждат данни. Ромбът проверява условие, а „ДА“ и „НЕ“ водят до различни изходи.";render();break;
+case "simulate-flow":{if(!st.flowDone[flowIdx])break;const raw=$("flowExample").value.trim();if(!raw||!Number.isFinite(Number(raw))){flowNotice="⚠ Въведи валидно число.";render();break}const n=Number(raw),yes=flowIdx===0?n%2===0:n>0;flowNotice="✓ При вход "+n+" условието е "+(yes?"ДА":"НЕ")+". Резултат: "+(flowIdx===0?(yes?"четно":"нечетно"):(yes?"да":"не"))+".";render();break}
 case "submit-free":{const f=st.free;const steps=f.steps.split(/\n/).filter(x=>x.replace(/^\s*\d+[.)]\s*/,"").trim().length>=6);if(f.task.trim().length<8||f.input.trim().length<3||f.output.trim().length<3||steps.length<3){finalNotice="Попълни задачата, входа, изхода и поне 3 смислени стъпки на отделни редове.";render();break}st.freeDone=true;finalNotice="✓ Структурата е предадена. Учителят ще провери смисловата правилност.";tally();render();break}
 case "print":window.print();break;
 case "export-json":downloadBlob(new Blob([JSON.stringify({game:"ALGO-01",nickname:st.nick,group:st.group,points:st.points,done:st.done,final:st.free},null,2)],{type:"application/json"}),"ALGO01-"+(st.nick.replace(/[^a-zA-Z0-9а-яА-Я]/g,"").slice(0,20)||"student")+".json");break;

@@ -1,11 +1,11 @@
 "use strict";
 (function(){
 const $=id=>document.getElementById(id);
-const STORE="algo01_v2_state", TEACHER="algo01_teacher_v2";
+const STORE="algo01_v3_state", TEACHER="algo01_teacher_v2";
 const M=[
  {title:"Подреди алгоритъма",sub:"Последователност",icon:"▦",badge:"Логик"},
- {title:"Открий грешката",sub:"7 свойства",icon:"⌕",badge:"Детектив"},
- {title:"Програмирай робота",sub:"3 маршрута",icon:"♟",badge:"Навигатор"},
+ {title:"Диагностика на системата",sub:"7 тайни сигнала",icon:"⌕",badge:"Детектив"},
+ {title:"Програмирай робота",sub:"5 приключения",icon:"♟",badge:"Навигатор"},
  {title:"Построй блок-схема",sub:"Два алгоритъма",icon:"◇",badge:"Архитект"},
  {title:"Финално предизвикателство",sub:"Твоят алгоритъм",icon:"✧",badge:"Майстор алгоритми"}
 ];
@@ -22,6 +22,16 @@ const PROPS=[
  {name:"Формалност",q:"На робота е дадена команда „Използвай тайния код“, но никъде не е зададен кодът. Кое свойство трябва да изпълняват инструкциите?",a:["Формалност","Масовост","Резултатност","Сложност"],correct:0,explain:"Формалност: изпълнителят следва точно описани операции, без да гадае липсваща информация."},
  {name:"Сложност",q:"Два алгоритъма дават един и същ правилен резултат, но използват различно време и памет. Кое свойство сравняваме?",a:["Крайност","Формалност","Определеност","Сложност"],correct:3,explain:"Сложност: оценяваме нужните ресурси, например време и памет."}
 ];
+const ALT_PROMPTS=[
+"При едни и същи данни навигацията веднъж показва север, друг път запад. Кое свойство е нарушено?",
+"Капитанът иска алгоритъм за всички врати, но програмата може да отвори само врата №3. Кое свойство липсва?",
+"Роботът изпълнява завой след завой завинаги и никога не спира. Кое свойство липсва?",
+"Алгоритъмът спира, но не изпраща търсените координати към капитана. Кое свойство липсва?",
+"Роботът получава само „Поправи станцията“ без изброени отделни действия. Кое свойство липсва?",
+"На робота е казано да използва правилната парола, но никъде не е указана паролата. Кое свойство липсва?",
+"Два маршрута дават еднакъв резултат, но единият използва 12 стъпки, а другият — 95. Кое свойство сравняваме?"
+];
+const ALT_PROPS=PROPS.map((p,i)=>({...p,q:ALT_PROMPTS[i]}));
 const MAPS=[
  {name:"Първи сигнал",desc:"Изведи АЛГО от началната клетка до зеления портал.",cells:["S....",".###.","...#.","##...","...#G"]},
  {name:"Космически лабиринт",desc:"Пътят не е прав. Използвай внимателно стрелките.",cells:["S..#..","##.#..","......",".####.","....#.","###..G"]},
@@ -37,9 +47,9 @@ const FINALQ=[
  {q:"Кое най-точно описва алгоритъм?",a:["Произволен текст","Само компютърна програма","Краен ред от ясни стъпки за решаване на задача","Списък с имена"],correct:2,why:"Алгоритъмът е ясно зададена последователност от действия, която решава задача."},
  {q:"Кога използваме повторение?",a:["Когато няма вход","Когато действия се изпълняват многократно при определено правило","Само когато програмата е грешна","Когато приключваме програмата"],correct:1,why:"Повторението организира многократно изпълнение на действия по зададено правило."}
 ];
-const mk=()=>({version:2,nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false],propDone:Array(7).fill(false),robotDone:[false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
+const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false],propDone:Array(7).fill(false),robotDone:[false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
 let st=mk();
-try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===2&&Array.isArray(o.orderDone)&&o.orderDone.length===2)st=Object.assign(mk(),o)}catch(e){}
+try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===2)st=Object.assign(mk(),o)}catch(e){}
 let teacher=null;
 try{teacher=JSON.parse(localStorage.getItem(TEACHER)||"null")}catch(e){}
 let view="home",orderIdx=0,orderPool=[],orderSeq=[],propIdx=0,propNotice="",orderNotice="",robotIdx=0,cmd=[],robotTrail=[],robotNotice="",robotBusy=false,flowIdx=0,flowPlaced={},flowPick="",flowNotice="",finalNotice="",board=null,online=false,boardBusy=false;
@@ -62,6 +72,16 @@ function tally(){const prev=st.done.slice();
 function persist(){try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){} renderHud();if(st.room&&st.studentId&&st.studentToken)sendProgress()}
 let syncTimer=null;
 function sendProgress(){clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{try{const res=await fetch("/api/class/progress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:st.room,studentId:st.studentId,studentToken:st.studentToken,progress:{points:st.points,done:st.done,final:st.freeDone?st.free:{}}})});if(!res.ok&&res.status===404)notify("Онлайн стаята е изтекла. Напредъкът е запазен на устройството.")}catch(e){}},600)}
+function ensureVariations(){
+ if(!Array.isArray(st.propOrder)||st.propOrder.length!==7)st.propOrder=shuffle([0,1,2,3,4,5,6]);
+ if(!Array.isArray(st.propPerm)||st.propPerm.length!==7)st.propPerm=Array.from({length:7},()=>shuffle([0,1,2,3]));
+ if(!Array.isArray(st.propVariants)||st.propVariants.length!==7)st.propVariants=Array.from({length:7},()=>Math.random()<.5?0:1);
+ if(!Array.isArray(st.quizOrder)||st.quizOrder.length!==4)st.quizOrder=shuffle([0,1,2,3]);
+ if(!Array.isArray(st.quizPerm)||st.quizPerm.length!==4)st.quizPerm=Array.from({length:4},()=>shuffle([0,1,2,3]));
+ if(!Array.isArray(st.flowBankOrder)||st.flowBankOrder.length!==2)st.flowBankOrder=[shuffle([0,1,2,3,4,5,6,7]),shuffle([0,1,2,3,4,5,6,7])];
+ try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){}
+}
+function activeProperty(){const i=st.propOrder[propIdx];return {concept:i,q:(st.propVariants[i]?ALT_PROPS:PROPS)[i]}}
 function renderHud(){
  $("playerName").textContent=st.nick||"Нов изследовател";
  $("playerClass").textContent=st.group||"Готов за приключение";
@@ -88,9 +108,16 @@ return heading(0,"Подреди алгоритъма","Точните инст�
  '<div class="order-columns"><div><h3>✧ Разбъркани инструкции</h3><div class="tiles" data-drop="pool">'+(orderPool.length?orderPool.map((id,i)=>row(id,i,"pool")).join(""):'<div class="empty">Всички стъпки са преместени.</div>')+'</div></div><div><h3>⌘ Твоят алгоритъм</h3><div class="tiles" data-drop="seq">'+(orderSeq.length?orderSeq.map((id,i)=>row(id,i,"seq")).join(""):'<div class="empty">Добавяй стъпки в правилния ред.</div>')+'</div></div></div>'+
  feedback(orderNotice,orderNotice.startsWith("✓")?"success":"error")+
  '<div class="row"><button class="btn" data-act="check-order" '+(orderSeq.length<5?"disabled":"")+'>Провери алгоритъма →</button><button class="btn secondary" data-act="reset-order">↻ Разбъркай</button>'+(st.orderDone[orderIdx]?'<span class="mini-badge">✓ +10 XP</span>':"")+'</div>'}
-function renderProps(){const q=PROPS[propIdx];return heading(1,"Открий грешката","Седемте свойства на алгоритмите са твоят диагностичен инструмент. Избери кое свойство описва ситуацията.")+
- '<div class="stepper">'+PROPS.map((p,i)=>'<button class="step '+(i===propIdx?"active ":"")+(st.propDone[i]?"complete":"")+'" data-prop="'+i+'">'+(st.propDone[i]?"✓":i+1)+'</button>').join("")+'</div>'+
- '<div class="subpanel light"><span class="mini-badge">КАЗУС '+(propIdx+1)+' ОТ 7</span><h3 style="margin-top:16px">'+escapeHtml(q.q)+'</h3><div class="choice-grid">'+q.a.map((a,i)=>'<button class="choice '+(st.propDone[propIdx]&&i===q.correct?"correct":"")+'" data-prop-answer="'+i+'" '+(st.propDone[propIdx]?"disabled":"")+'><strong>'+String.fromCharCode(65+i)+'.</strong> '+escapeHtml(a)+'</button>').join("")+'</div>'+feedback(st.propDone[propIdx]?"✓ "+q.explain:propNotice,st.propDone[propIdx]?"success":"error")+'</div><div class="row"><span class="mini-badge">Решени: '+st.propDone.filter(Boolean).length+' / 7</span><button class="btn secondary" data-act="prop-next">Следващ казус →</button><button class="btn ghost" data-act="prop-hint">💡 Подсказка</button></div>'}
+function renderProps(){
+ const {concept,q}=activeProperty(),perm=st.propPerm[concept],solved=st.propDone[concept];
+ return heading(1,"Диагностика на системата","Сигналите са разбъркани, а отговорите сменят местата си при всяка нова игра. Помисли кое от седемте свойства е нарушено.")+
+ '<div class="stepper">'+st.propOrder.map((c,i)=>'<button class="step '+(i===propIdx?"active ":"")+(st.propDone[c]?"complete":"")+'" data-prop="'+i+'">'+(st.propDone[c]?"✓":i+1)+'</button>').join("")+'</div>'+
+ '<div class="subpanel light"><span class="mini-badge">СИГНАЛ '+(propIdx+1)+' / 7</span><h3 style="margin-top:16px">'+escapeHtml(q.q)+'</h3><div class="choice-grid">'+perm.map((raw,i)=>'<button class="choice '+(solved&&raw===q.correct?"correct":"")+'" data-prop-answer="'+raw+'" '+(solved?"disabled":"")+'><strong>'+String.fromCharCode(65+i)+'.</strong> '+escapeHtml(q.a[raw])+'</button>').join("")+'</div>'+
+ feedback(solved?"✓ "+q.explain:propNotice,solved?"success":"error")+'</div>'+
+ '<div class="row"><span class="mini-badge">Решени: '+st.propDone.filter(Boolean).length+' / 7</span>'+
+ '<button class="btn" data-act="prop-next">'+(st.propDone.every(Boolean)?"Следваща мисия →":"Следващ сигнал →")+'</button>'+
+ '<button class="btn ghost" data-act="prop-hint">💡 Подсказка</button></div>'
+}
 const dirs={"↑":[-1,0],"↓":[1,0],"←":[0,-1],"→":[0,1]};
 function origin(cells){for(let r=0;r<cells.length;r++)for(let c=0;c<cells[r].length;c++)if(cells[r][c]==="S")return [r,c];return [0,0]}
 function setupRobot(i){robotIdx=i;cmd=[];robotTrail=[origin(MAPS[i].cells)];robotNotice="";robotBusy=false}
@@ -141,7 +168,7 @@ if(b.dataset.mission!==undefined){go("mission",Number(b.dataset.mission));return
 if(b.dataset.orderTask!==undefined){setupOrder(Number(b.dataset.orderTask));render();return}
 if(b.dataset.order!==undefined){clickTile(b.dataset.order,Number(b.dataset.index),Number(b.dataset.id));return}
 if(b.dataset.prop!==undefined){propIdx=Number(b.dataset.prop);propNotice="";render();return}
-if(b.dataset.propAnswer!==undefined){const q=PROPS[propIdx],ans=Number(b.dataset.propAnswer);if(!st.propDone[propIdx]){if(ans===q.correct){st.propDone[propIdx]=true;propNotice="";tally();render()}else{propNotice="Не съвсем. Помисли за определението на свойството и опитай пак.";render()}}return}
+if(b.dataset.propAnswer!==undefined){const q=activeProperty().q,ans=Number(b.dataset.propAnswer);if(!st.propDone[activeProperty().concept]){if(ans===q.correct){st.propDone[activeProperty().concept]=true;propNotice="";tally();render()}else{propNotice="Не съвсем. Помисли за определението на свойството и опитай пак.";render()}}return}
 if(b.dataset.robotLevel!==undefined){if(robotBusy)return;setupRobot(Number(b.dataset.robotLevel));render();return}
 if(b.dataset.dir!==undefined){if(robotBusy||cmd.length>=70)return;cmd.push(b.dataset.dir);robotTrail=[origin(MAPS[robotIdx].cells)];robotNotice="";render();return}
 if(b.dataset.flowLevel!==undefined){setupFlow(Number(b.dataset.flowLevel));render();return}
@@ -157,10 +184,10 @@ case "start-modal":introModal();break;
 case "teacher-access":$("modalRoot").innerHTML="";go("teacher");if(teacher)await getBoard();break;
 case "close-modal":closeModal();break;
 case "help":helpModal();break;
-case "reset":if(confirm("Нова игра? Текущият напредък ще бъде изтрит само от това устройство.")){st=mk();localStorage.removeItem(STORE);view="home";setupOrder(0);setupRobot(0);setupFlow(0);render();introModal()}break;
+case "reset":if(confirm("Нова игра? Текущият напредък ще бъде изтрит само от това устройство.")){st=mk();ensureVariations();localStorage.removeItem(STORE);view="home";setupOrder(0);setupRobot(0);setupFlow(0);render();introModal()}break;
 case "check-order":if(orderSeq.length===5&&orderSeq.every((v,i)=>v===i)){if(!st.orderDone[orderIdx]){st.orderDone[orderIdx]=true;tally()}orderNotice="✓ Отлично! Инструкциите са подредени в правилната последователност."}else orderNotice="Стъпките още не са в правилния ред. Опитай да откриеш какво трябва да се случи по-рано.";render();break;
 case "reset-order":setupOrder(orderIdx);render();break;
-case "prop-next":{const next=st.propDone.findIndex((v,i)=>!v&&i>propIdx);propIdx=next<0?Math.max(0,st.propDone.findIndex(v=>!v)):next;if(propIdx<0)propIdx=6;propNotice="";render();break}
+case "prop-next":{const next=st.propOrder.findIndex((c,i)=>i>propIdx&&!st.propDone[c]);const first=st.propOrder.findIndex(c=>!st.propDone[c]);if(next<0&&first<0){go("mission",2);break}propIdx=next<0?first:next;propNotice="";render();break}
 case "prop-hint":propNotice="Подсказка: сравни конкретния проблем с определенията за свойствата от учебника.";render();break;
 case "run-robot":await runRobot();break;
 case "undo-robot":cmd.pop();robotTrail=[origin(MAPS[robotIdx].cells)];robotNotice="";render();break;
@@ -176,9 +203,10 @@ case "copy-room":if(teacher){const link=location.origin+"/?room="+teacher.code;t
 case "refresh-board":await getBoard();break;
 case "export-csv":await exportCsv();break;
 }}
-async function handleSubmit(e){if(e.target.id!=="startForm")return;e.preventDefault();const nick=$("nickname").value.trim(),group=$("group").value.trim(),code=$("classCode").value.trim().toUpperCase();if(nick.length<2)return;const err=$("entryError");err.textContent="Свързване...";try{st=mk();st.nick=nick;st.group=group;if(code)await joinRoom(code,nick);$("modalRoot").innerHTML="";try{history.replaceState(null,"",location.pathname)}catch(e){}persist();go("home");if(code)notify("Успешно присъединяване към стая "+st.room)}catch(error){err.textContent=error.message+" Ако нямаш код, изтрий го и започни самостоятелно."}}
+async function handleSubmit(e){if(e.target.id!=="startForm")return;e.preventDefault();const nick=$("nickname").value.trim(),group=$("group").value.trim(),code=$("classCode").value.trim().toUpperCase();if(nick.length<2)return;const err=$("entryError");err.textContent="Свързване...";try{st=mk();ensureVariations();st.nick=nick;st.group=group;if(code)await joinRoom(code,nick);$("modalRoot").innerHTML="";try{history.replaceState(null,"",location.pathname)}catch(e){}persist();go("home");if(code)notify("Успешно присъединяване към стая "+st.room)}catch(error){err.textContent=error.message+" Ако нямаш код, изтрий го и започни самостоятелно."}}
 function onDrop(e){const zone=e.target.closest("[data-drop]");if(!zone||view!=="mission"||window.mission!==0)return;e.preventDefault();try{const d=JSON.parse(e.dataTransfer.getData("application/json"));const id=Number(d.id);if(d.from==="pool"&&zone.dataset.drop==="seq")clickTile("add",0,id);else if(d.from==="seq"&&zone.dataset.drop==="pool"){const i=orderSeq.indexOf(id);if(i>=0)clickTile("remove",i,0)}else if(d.from==="seq"&&zone.dataset.drop==="seq"){let i=orderSeq.indexOf(id);const tile=e.target.closest(".tile");let to=tile?orderSeq.indexOf(Number(tile.dataset.tile)):orderSeq.length-1;if(i>=0&&to>=0&&i!==to){orderSeq.splice(i,1);orderSeq.splice(to,0,id);render()}}}catch(err){}}
 async function connect(){try{const r=await api("/api/health");online=!!r.ok;$("connection").textContent="◉ Онлайн станция"}catch(e){online=false;$("connection").textContent="◌ Самостоятелна игра"}}
 function init(){window.mission=0;setupOrder(0);setupRobot(0);setupFlow(0);render();connect();if(!st.nick)introModal();document.addEventListener("click",handleClick);document.addEventListener("submit",handleSubmit);$("teacherButton").addEventListener("click",()=>{go("teacher");if(teacher)getBoard()});$("helpButton").addEventListener("click",helpModal);$("homeButton").addEventListener("click",()=>go("home"));$("summaryButton").addEventListener("click",()=>go("summary"));document.addEventListener("input",e=>{const fields={freeTask:"task",freeInput:"input",freeSteps:"steps",freeOutput:"output"};if(fields[e.target.id]){st.free[fields[e.target.id]]=e.target.value;try{localStorage.setItem(STORE,JSON.stringify(st))}catch(err){}}});document.addEventListener("dragstart",e=>{const tile=e.target.closest("[data-tile]");if(tile&&e.dataTransfer)e.dataTransfer.setData("application/json",JSON.stringify({id:tile.dataset.tile,from:tile.dataset.origin}))});document.addEventListener("dragover",e=>{if(e.target.closest("[data-drop]"))e.preventDefault()});document.addEventListener("drop",onDrop);document.addEventListener("keydown",e=>{if(view!=="mission"||window.mission!==2||robotBusy||["INPUT","TEXTAREA"].includes(document.activeElement.tagName))return;const codes={ArrowUp:"↑",ArrowDown:"↓",ArrowLeft:"←",ArrowRight:"→"};if(codes[e.key]&&cmd.length<70){e.preventDefault();cmd.push(codes[e.key]);render()}});setInterval(()=>{if(view==="teacher"&&teacher)getBoard()},5000)}
+ensureVariations();
 init();
 })();

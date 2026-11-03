@@ -13,6 +13,7 @@ import re
 import secrets
 import threading
 import time
+import zipfile
 from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -85,6 +86,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(size))
+        if content_type.startswith("application/zip"):
+            self.send_header("Content-Disposition", 'attachment; filename="ALGO-01-v3-Render.zip"')
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
@@ -170,6 +173,29 @@ class Handler(BaseHTTPRequestHandler):
             output = ("\ufeff" + buf.getvalue()).encode("utf-8")
             self.headers_common(len(output), "text/csv; charset=utf-8")
             self.wfile.write(output)
+            return
+        if path == "/download-game.zip":
+            # The archive is assembled directly from the live deployed files.
+            # No credentials, class information or server-side results are included.
+            blob = io.BytesIO()
+            with zipfile.ZipFile(blob, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as pack:
+                for filename in ("index.html", "style.css", "app.js", "server.py", "README.md"):
+                    file = ROOT / filename
+                    if file.is_file():
+                        pack.write(file, arcname="ALGO-01/" + filename)
+                pack.writestr("ALGO-01/START_WINDOWS.bat",
+                             "@echo off\r\ncd /d \"%~dp0\"\r\npython server.py\r\npause\r\n")
+                pack.writestr("ALGO-01/READ_ME_FIRST.txt",
+                             "ALGO-01: Algorithm under control (v3)\n"
+                             "1. Install Python 3 if not available.\n"
+                             "2. On Windows open START_WINDOWS.bat.\n"
+                             "3. Open http://localhost:10000 in a browser.\n"
+                             "Note: The public Render site has temporary classroom sessions.\n"
+                             "Locally, the server also only stores room data in memory.\n"
+                             "No secret teacher access keys are included in the archive.\n")
+            payload = blob.getvalue()
+            self.headers_common(len(payload), "application/zip")
+            self.wfile.write(payload)
             return
         static = {"/": "index.html", "/index.html": "index.html",
                   "/style.css": "style.css", "/app.js": "app.js"}

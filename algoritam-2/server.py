@@ -124,6 +124,14 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeError, OSError):
             return None
 
+    def do_HEAD(self):
+        path = urlsplit(self.path).path
+        status = 200 if path in ("/", "/health", "/api/health") else 404
+        self.send_response(status)
+        self.send_header("Content-Length", "0")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+
     def do_GET(self):
         path = urlsplit(self.path).path
         if path in ("/api/health", "/health"):
@@ -181,7 +189,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path not in ("/api/class/create", "/api/class/join", "/api/class/progress"):
             return self.output(404, {"error": "Невалиден адрес."})
-        if self.rate_limited(75):
+        if self.rate_limited(500):
             return self.output(429, {"error": "Твърде много заявки. Опитай след минута."})
         body = self.read_json()
         if body is None:

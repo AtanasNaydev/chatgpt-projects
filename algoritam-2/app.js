@@ -10,9 +10,11 @@ const M=[
  {title:"Финално предизвикателство",sub:"Твоят алгоритъм",icon:"✧",badge:"Майстор алгоритми"}
 ];
 const ORDER=[
- {title:"Изпрати съобщение",prompt:"Подреди петте действия, за да изпратиш съобщение.",steps:["Отвори приложението за съобщения.","Избери получател.","Напиши съобщение.","Прегледай текста за грешки.","Натисни „Изпрати“."],input:"Получател и текст",output:"Изпратено съобщение"},
- {title:"Влез в учебна платформа",prompt:"Подреди правилно действията за вход в учебен сайт.",steps:["Стартирай интернет браузър.","Въведи адреса на учебния сайт.","Изчакай страницата за вход да се зареди.","Попълни данните за вход.","Натисни бутона „Вход“."],input:"Адрес и данни за вход",output:"Отворен учебен профил"}
+ {title:"Събуди спасителния робот",prompt:"Системата е изключена! Подреди командите, така че роботът да получи мисията.",steps:["Включи контролния панел.","Свържи спасителния робот с панела.","Избери режим „Спасителна мисия“.","Въведи целевите координати.","Натисни „Старт“."],input:"Координати на целта",output:"Роботът започва мисията"},
+ {title:"Изпрати сигнал до Земята",prompt:"Космическата връзка е прекъсната. Възстанови я чрез точен ред на действията.",steps:["Включи радиопредавателя.","Провери дали каналът е активен.","Избери получателя „Земя“.","Въведи аварийното съобщение.","Изпрати сигнала."],input:"Аварийно съобщение",output:"Изпратен сигнал до Земята"},
+ {title:"Зареди енергийна клетка",prompt:"Следвай точно процедурата за безопасно зареждане, без да пропускаш стъпки.",steps:["Изключи захранването на енергийната клетка.","Свържи клетката със зарядната станция.","Включи зарядната станция.","Изчакай индикаторът да покаже 100%.","Изключи зарядната станция.","Откачи напълно заредената клетка."],input:"Разредена енергийна клетка",output:"Безопасно заредена клетка"}
 ];
+
 const PROPS=[
  {name:"Определеност",q:"При едни и същи входни данни един учебен алгоритъм понякога връща 4, а друг път 9. Кое свойство е нарушено?",a:["Масовост","Определеност","Крайност","Сложност"],correct:1,explain:"Определеност: в разглеждания учебен модел еднаквите входни данни водят до един и същи резултат."},
  {name:"Масовост",q:"Имаме алгоритъм, който работи само с числото 7, а задачата е да работи с всички цели числа. Кое свойство липсва?",a:["Дискретност","Резултатност","Масовост","Формалност"],correct:2,explain:"Масовост: алгоритъмът решава цял клас еднотипни задачи, а не само един конкретен пример."},
@@ -51,9 +53,9 @@ const FINALQ=[
  {q:"Кое най-точно описва алгоритъм?",a:["Произволен текст","Само компютърна програма","Краен ред от ясни стъпки за решаване на задача","Списък с имена"],correct:2,why:"Алгоритъмът е ясно зададена последователност от действия, която решава задача."},
  {q:"Кога използваме повторение?",a:["Когато няма вход","Когато действия се изпълняват многократно при определено правило","Само когато програмата е грешна","Когато приключваме програмата"],correct:1,why:"Повторението организира многократно изпълнение на действия по зададено правило."}
 ];
-const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
+const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
 let st=mk();
-try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===2)st=Object.assign(mk(),o)}catch(e){}
+try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===3)st=Object.assign(mk(),o)}catch(e){}
 let teacher=null;
 try{teacher=JSON.parse(localStorage.getItem(TEACHER)||"null")}catch(e){}
 let view="home",orderIdx=0,orderPool=[],orderSeq=[],propIdx=0,propNotice="",orderNotice="",robotIdx=0,cmd=[],robotTrail=[],robotNotice="",robotBusy=false,flowIdx=0,flowPlaced={},flowPick="",flowNotice="",finalNotice="",board=null,online=false,boardBusy=false;
@@ -64,7 +66,7 @@ const score=()=>st.points.reduce((a,b)=>a+b,0);
 const notify=(msg)=>{const el=$("toast");el.textContent=msg;el.classList.add("show");clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove("show"),3500)};
 function confetti(){if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;let el=document.createElement("div");el.className="confetti";for(let i=0;i<45;i++){let s=document.createElement("span");s.style.left=(Math.random()*100)+"vw";s.style.animationDelay=(Math.random()*.6)+"s";s.style.background=["#65f6df","#ad9aff","#ffd48b","#86a7ff"][i%4];el.appendChild(s)}document.body.appendChild(el);setTimeout(()=>el.remove(),3500)}
 function tally(){const prev=st.done.slice();
- st.points[0]=st.orderDone.filter(Boolean).length*10;
+ st.points[0]=st.orderDone.reduce((n,done,i)=>n+(done?[6,7,7][i]:0),0);
  st.points[1]=st.propDone.reduce((n,b,i)=>n+(b?(i===6?2:3):0),0);
  st.points[2]=st.robotDone.filter(Boolean).length*4;
  st.points[3]=st.flowDone.filter(Boolean).length*10;
@@ -105,13 +107,13 @@ function go(next,i){if(next==="mission"&&(!st.nick||(i>0&&!st.done[i-1]))){notif
 function home(){return '<div class="tagline">СТАНЦИЯ ALGO-01 • АКТИВНА МИСИЯ</div><h2>Добре дошъл, '+escapeHtml(st.nick||"изследователю")+'! 🚀</h2><p class="lead">Петте системи на станцията чакат да ги възстановиш. Всяка мисия е ново логическо предизвикателство. Не се страхувай да грешиш: поправяй алгоритъма и опитай отново!</p>'+
  (st.nick?'<div class="row"><span class="mini-badge">Играч: '+escapeHtml(st.nick)+'</span>'+(st.room?'<span class="mini-badge">Стая: '+escapeHtml(st.room)+'</span>':'<span class="mini-badge">Самостоятелен режим</span>')+'<button class="btn ghost small" data-act="reset">Нова игра</button></div>':'<button class="btn" data-act="start-modal">Започни мисията →</button>')+
  '<div class="mission-grid">'+M.map((m,i)=>'<button class="mission-card '+(st.done[i]?"complete":(i>0&&!st.done[i-1]?"locked":""))+' '+(i===4?"wide":"")+'" data-mission="'+i+'" '+(!st.nick||(i>0&&!st.done[i-1])?"disabled":"")+'><span class="roundicon">'+m.icon+'</span><span class="corner">'+(st.done[i]?"✓ ГОТОВО":i>0&&!st.done[i-1]?"🔒 ЗАКЛЮЧЕНО":st.points[i]+" / 20 XP")+'</span><strong>0'+(i+1)+'. '+escapeHtml(m.title)+'</strong><p>'+escapeHtml(m.sub)+' · Награда: '+escapeHtml(m.badge)+'</p></button>').join("")+'</div><div class="notice">ⓘ Можеш да играеш и без стая. За общ напредък учителят създава онлайн стая и споделя шестсимволния код.</div>'}
-function setupOrder(i){orderIdx=i;orderPool=shuffle([0,1,2,3,4]);orderSeq=[];orderNotice=""}
+function setupOrder(i){orderIdx=i;orderPool=shuffle(ORDER[i].steps.map((_,k)=>k));orderSeq=[];orderNotice=""}
 function renderOrder(){const task=ORDER[orderIdx];const row=(id,idx,part)=>'<div class="tile" draggable="true" data-tile="'+id+'" data-origin="'+part+'"><span class="ordernum">'+(part==="seq"?idx+1:"•")+'</span><span class="tiletext">'+escapeHtml(task.steps[id])+'</span><div class="tile-actions">'+(part==="seq"?'<button title="Нагоре" aria-label="Премести нагоре" data-order="up" data-index="'+idx+'">↑</button><button title="Надолу" aria-label="Премести надолу" data-order="down" data-index="'+idx+'">↓</button><button title="Премахни" data-order="remove" data-index="'+idx+'">×</button>':'<button aria-label="Добави стъпката" data-order="add" data-id="'+id+'">＋</button>')+'</div></div>';
-return heading(0,"Подреди алгоритъма","Точните инструкции са като маршрут. Постави стъпките в правилния ред. Можеш да ги влачиш или да използваш бутоните.")+
+return heading(0,"Подреди алгоритъма","Рестартирай три системи на станцията! Подреди командите във верния ред. Можеш да ги влачиш или да използваш бутоните.")+
  '<div class="stepper">'+ORDER.map((t,i)=>'<button class="step '+(i===orderIdx?"active ":"")+(st.orderDone[i]?"complete":"")+'" data-order-task="'+i+'">'+(st.orderDone[i]?"✓ ":"")+(i+1)+'. '+escapeHtml(t.title)+'</button>').join("")+'</div><div class="subpanel"><h3>'+escapeHtml(task.title)+'</h3><p>'+escapeHtml(task.prompt)+'</p><div class="diagram-basic">ВХОД ➜ ДЕЙСТВИЯ ➜ ИЗХОД</div><div class="row"><span class="mini-badge">Вход: '+escapeHtml(task.input)+'</span><span class="mini-badge">Изход: '+escapeHtml(task.output)+'</span></div></div>'+
  '<div class="order-columns"><div><h3>✧ Разбъркани инструкции</h3><div class="tiles" data-drop="pool">'+(orderPool.length?orderPool.map((id,i)=>row(id,i,"pool")).join(""):'<div class="empty">Всички стъпки са преместени.</div>')+'</div></div><div><h3>⌘ Твоят алгоритъм</h3><div class="tiles" data-drop="seq">'+(orderSeq.length?orderSeq.map((id,i)=>row(id,i,"seq")).join(""):'<div class="empty">Добавяй стъпки в правилния ред.</div>')+'</div></div></div>'+
  feedback(orderNotice,orderNotice.startsWith("✓")?"success":"error")+
- '<div class="row"><button class="btn" data-act="check-order" '+(orderSeq.length<5?"disabled":"")+'>Провери алгоритъма →</button><button class="btn secondary" data-act="reset-order">↻ Разбъркай</button>'+(st.orderDone[orderIdx]?'<span class="mini-badge">✓ +10 XP</span>':"")+'</div>'}
+ '<div class="row"><button class="btn" data-act="check-order" '+(orderSeq.length<task.steps.length?"disabled":"")+'>Провери алгоритъма →</button><button class="btn secondary" data-act="reset-order">↻ Разбъркай</button>'+(st.orderDone[orderIdx]?'<span class="mini-badge">✓ +'+[6,7,7][orderIdx]+' XP</span><button class="btn gold small" data-act="next-order">'+(orderIdx<ORDER.length-1?"Следваща задача →":"Към диагностиката →")+'</button>':"")+'</div>'}
 function renderProps(){
  const {concept,q}=activeProperty(),perm=st.propPerm[concept],solved=st.propDone[concept];
  return heading(1,"Диагностика на системата","Сигналите са разбъркани, а отговорите сменят местата си при всяка нова игра. Помисли кое от седемте свойства е нарушено.")+
@@ -254,8 +256,9 @@ case "teacher-access":$("modalRoot").innerHTML="";go("teacher");if(teacher)await
 case "close-modal":closeModal();break;
 case "help":helpModal();break;
 case "reset":if(confirm("Нова игра? Текущият напредък ще бъде изтрит само от това устройство.")){st=mk();ensureVariations();localStorage.removeItem(STORE);view="home";setupOrder(0);setupRobot(0);setupFlow(0);render();introModal()}break;
-case "check-order":if(orderSeq.length===5&&orderSeq.every((v,i)=>v===i)){if(!st.orderDone[orderIdx]){st.orderDone[orderIdx]=true;tally()}orderNotice="✓ Отлично! Инструкциите са подредени в правилната последователност."}else orderNotice="Стъпките още не са в правилния ред. Опитай да откриеш какво трябва да се случи по-рано.";render();break;
+case "check-order":if(orderSeq.length===ORDER[orderIdx].steps.length&&orderSeq.every((v,i)=>v===i)){if(!st.orderDone[orderIdx]){st.orderDone[orderIdx]=true;tally()}orderNotice="✓ Отлично! Инструкциите са подредени в правилната последователност."}else orderNotice="Стъпките още не са в правилния ред. Опитай да откриеш какво трябва да се случи по-рано.";render();break;
 case "reset-order":setupOrder(orderIdx);render();break;
+case "next-order":if(st.orderDone[orderIdx]&&orderIdx<ORDER.length-1){setupOrder(orderIdx+1);render()}else if(st.orderDone.every(Boolean)){go("mission",1)}break;
 case "prop-next":{const next=st.propOrder.findIndex((c,i)=>i>propIdx&&!st.propDone[c]);const first=st.propOrder.findIndex(c=>!st.propDone[c]);if(next<0&&first<0){go("mission",2);break}propIdx=next<0?first:next;propNotice="";render();break}
 case "prop-hint":propNotice="Подсказка: сравни конкретния проблем с определенията за свойствата от учебника.";render();break;
 case "run-robot":await runRobot();break;

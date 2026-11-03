@@ -65,7 +65,7 @@ const FLOW_DECOYS=[
  ["Изведи „нула“","n > 5?"],
  ["Въведи y","x == 100?"]
 ];
-const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""},bossDone:[false,false,false,false],bossDevices:[],bossRoutePerm:[]});
+const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""},bossDone:[false,false,false,false],bossDevices:[],bossRoutePerm:[],bossDevicePerm:[]});
 let st=mk();
 try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===3)st=Object.assign(mk(),o)}catch(e){}
 let teacher=null;
@@ -100,6 +100,7 @@ function ensureVariations(){
  if(!Array.isArray(st.bossDone)||st.bossDone.length!==4)st.bossDone=[false,false,false,false];
  if(!Array.isArray(st.bossDevices))st.bossDevices=[];
  if(!Array.isArray(st.bossRoutePerm)||st.bossRoutePerm.length!==3)st.bossRoutePerm=shuffle([0,1,2]);
+ if(!Array.isArray(st.bossDevicePerm)||st.bossDevicePerm.length!==5)st.bossDevicePerm=shuffle(["cool","nav","reactor","comm","launch"]);
  st.points[4]=st.bossDone.filter(Boolean).length*5;
  st.done[4]=st.bossDone.every(Boolean);
  try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){}
@@ -237,20 +238,114 @@ function renderFlow(){
  '<button class="btn ghost" data-act="hint-flow">💡 Подсказка</button><span class="mini-badge">Поставени '+Object.keys(flowPlaced).length+' / 6</span></div>'+
  (st.flowDone[flowIdx]?'<div class="subpanel light"><h3>🧪 Изпитай алгоритъма с число</h3><div class="row"><input class="text-input" type="number" id="flowExample" value="4" style="max-width:150px" aria-label="Примерно число"><button class="btn gold" data-act="simulate-flow">▶ Тествай блок-схемата</button></div></div>':"");
 }
+
+const BOSS_TITLES=["Поправи програмата","Кислородна защита","Избери най-добрия маршрут","Задействай спасителния сигнал"];
+const BOSS_ICONS=["⌨","◈","♟","⚡"];
+const BOSS_FIX_MAP=["S....",".##..","..#..",".##..","....G"];
+const BOSS_ROUTE_MAP=["S...#",".#...",".....",".###.","....G"];
+const BOSS_ROUTES=[
+ {name:"Алгоритъм 1",seq:"↓↓↓↓→→→→"},
+ {name:"Алгоритъм 2",seq:"→→→→↓↓↓↓"},
+ {name:"Алгоритъм 3",seq:"↓↓→→→→↓↑↓↓"}
+];
+const BOSS_DEVICES=[
+ {id:"cool",name:"Охлаждане",icon:"❄️",description:"Стабилизира температурата на реактора",needs:[]},
+ {id:"nav",name:"Навигация",icon:"🧭",description:"Изчислява координатите на Земята",needs:[]},
+ {id:"reactor",name:"Реактор",icon:"⚡",description:"Осигурява енергия за предавателя",needs:["cool"]},
+ {id:"comm",name:"Предавател",icon:"📡",description:"Подготвя спасителния сигнал",needs:["reactor","nav"]},
+ {id:"launch",name:"Изпрати сигнал",icon:"🚀",description:"Финално активиране на станцията",needs:["comm"]}
+];
+let bossPhase=0,bossProgram=["→","→","→","→","←","↓","↓","↓"],bossSelected=-1,
+ bossRepairTrail=[[0,0]],bossNotice="",bossOperator="",bossThreshold=0,bossTrial=[],bossRouteSelected=-1,bossRouteTrail=[[0,0]];
+function bossSimulation(map,seq){
+ let r=0,c=0,visited=[[0,0]],reason="end",steps=0;
+ for(let i=0;i<seq.length;i++){
+  const delta=dirs[seq[i]];if(!delta){reason="invalid";break}
+  const nr=r+delta[0],nc=c+delta[1];
+  if(nr<0||nr>=map.length||nc<0||nc>=map[nr].length||map[nr][nc]==="#"){reason="wall";steps=i+1;break}
+  r=nr;c=nc;steps=i+1;visited.push([r,c]);
+  if(map[r][c]==="G"){reason="goal";break}
+ }
+ return {ok:reason==="goal",reason,steps,visited};
+}
+function bossMap(map,trace){
+ const pos=trace[trace.length-1]||[0,0],touched=new Set(trace.map(p=>p[0]+","+p[1]));
+ return '<div class="robot-grid boss-grid" style="grid-template-columns:repeat('+map[0].length+',minmax(0,1fr))">'+
+ map.map((row,r)=>row.split("").map((cell,c)=>{
+ const here=pos[0]===r&&pos[1]===c;
+ const icon=here?"🤖":cell==="#"?"▦":cell==="G"?"✦":touched.has(r+","+c)?"·":"";
+ return '<div class="cell '+(cell==="#"?"wall ":cell==="G"?"goal ":"")+(touched.has(r+","+c)?"path ":"")+(here?"bot":"")+'">'+icon+'</div>';
+ }).join("")).join("")+'</div>';
+}
+function bossFinish(stage){
+ if(st.bossDone[stage])return;
+ if(stage>0&&!st.bossDone[stage-1])return;
+ st.bossDone[stage]=true;
+ tally();
+}
+function bossProgress(){
+ const done=st.bossDone.filter(Boolean).length;
+ return '<div class="boss-core '+(done===4?"boss-core-on":"")+'"><div class="boss-core-symbol">'+(done===4?"🌟":"⚛")+'</div>'+
+ '<div><div class="tiny-label">АВАРИЕН ЕНЕРГИЕН РЕАКТОР</div><strong>'+done+' / 4 модула активни</strong><div class="progress-track"><span style="width:'+(done*25)+'%"></span></div></div></div>'+
+ '<div class="boss-stages">'+BOSS_TITLES.map((label,i)=>'<button class="boss-stage '+(i===bossPhase?"active ":"")+(st.bossDone[i]?"complete":"")+'" data-boss-phase="'+i+'" '+(i>0&&!st.bossDone[i-1]?"disabled":"")+'><span class="boss-stage-icon">'+(st.bossDone[i]?"✓":BOSS_ICONS[i])+'</span><span>'+(i+1)+'. '+escapeHtml(label)+'</span><small>5 XP</small></button>').join("")+'</div>';
+}
+function bossContinue(){
+ return st.bossDone[bossPhase]?(bossPhase<3?'<button class="btn gold" data-act="boss-next">Следващият модул →</button>':
+ '<button class="btn gold" data-act="boss-summary">🏆 Виж финалния резултат</button>'):"";
+}
+function bossRepairScreen(){
+ const result=bossSimulation(BOSS_FIX_MAP,bossProgram);
+ return '<div class="boss-challenge"><div class="mini-badge">ЕТАП 1 • ОТСТРАНЯВАНЕ НА ГРЕШКА</div>'+
+ '<h3>🤖 Намери повредената команда!</h3><p>Алго трябва да стигне до портала ✦. В програмата има една грешна стрелка. Натисни върху командата, която искаш да замениш, след това избери правилната посока.</p>'+
+ '<div class="boss-two"><div>'+bossMap(BOSS_FIX_MAP,bossRepairTrail)+
+ '<p class="subtle">▦ Стена · ✦ Портал · 🤖 Робот</p></div>'+
+ '<div><strong>Повредена програма</strong><div class="boss-program">'+bossProgram.map((ch,i)=>'<button class="boss-command '+(bossSelected===i?"selected ":"")+'" data-boss-index="'+i+'" aria-label="Команда '+(i+1)+': '+ch+'">'+ch+'<small>'+(i+1)+'</small></button>').join("")+'</div>'+
+ '<div class="boss-arrows"><button data-boss-dir="↑" '+(bossSelected<0?"disabled":"")+'>↑</button><button data-boss-dir="←" '+(bossSelected<0?"disabled":"")+'>←</button><button data-boss-dir="↓" '+(bossSelected<0?"disabled":"")+'>↓</button><button data-boss-dir="→" '+(bossSelected<0?"disabled":"")+'>→</button></div>'+
+ '<p class="subtle">Подсказка: роботът трябва да достигне последната колона и после да се спусне до портала.</p></div></div>'+
+ '<div class="row"><button class="btn" data-act="boss-test-repair">▶ Тествай програмата</button><button class="btn ghost" data-act="boss-reset-repair">↻ Върни оригинала</button></div>'+
+ feedback(bossNotice,bossNotice.startsWith("✓")?"success":bossNotice.startsWith("⚠")?"error":"")+
+ (result.ok&&!st.bossDone[0]?'<p class="subtle">Роботът вече може да стигне до портала. Натисни теста, за да активираш модула.</p>':"")+
+ bossContinue()+'</div>';
+}
+function bossSensorScreen(){
+ const examples=[18,29,30,44],f=val=>bossOperator==="<"?val<bossThreshold:bossOperator==="≤"?val<=bossThreshold:bossOperator===">"?val>bossThreshold:val>=bossThreshold;
+ return '<div class="boss-challenge"><div class="mini-badge">ЕТАП 2 • АВТОМАТИЧНА ЗАЩИТА</div>'+
+ '<h3>🫧 Настрой кислородния сензор</h3><p>Според инструкцията: <b>ако кислородът е под 30%, включи тревога; иначе станцията е в норма.</b> Избери условие и го изпитай върху четири измервания.</p>'+
+ '<div class="boss-sensor"><div class="boss-sensor-rule">АКО <span>кислород</span> <b>'+escapeHtml(bossOperator||"?")+'</b> <b>'+(bossThreshold||"?")+'%</b> → <span>🚨 ТРЕВОГА</span></div>'+
+ '<div class="boss-choice-heading">Избери знак</div><div class="boss-choice-row">'+["<","≤",">","≥"].map(op=>'<button class="boss-option '+(bossOperator===op?"selected":"")+'" data-boss-op="'+escapeHtml(op)+'">'+escapeHtml(op)+'</button>').join("")+'</div>'+
+ '<div class="boss-choice-heading">Избери граница</div><div class="boss-choice-row">'+[25,30,35,40].map(v=>'<button class="boss-option '+(bossThreshold===v?"selected":"")+'" data-boss-threshold="'+v+'">'+v+'%</button>').join("")+'</div></div>'+
+ '<div class="boss-sensor-readings">'+examples.map((v,i)=>'<div class="boss-reading"><strong>'+v+'%</strong><span>'+(bossTrial.length?(f(v)?"🚨 Тревога":"🟢 Норма"):"Чака проверка")+'</span></div>').join("")+'</div>'+
+ '<div class="row"><button class="btn" data-act="boss-test-sensor" '+(!bossOperator||!bossThreshold?"disabled":"")+'>▶ Тествай четирите измервания</button></div>'+
+ feedback(bossNotice,bossNotice.startsWith("✓")?"success":bossNotice.startsWith("⚠")?"error":"")+bossContinue()+'</div>';
+}
+function bossRoutesScreen(){
+ const correct=BOSS_ROUTES.map((route,i)=>({i,...bossSimulation(BOSS_ROUTE_MAP,[...route.seq])}));
+ const smallest=Math.min(...correct.filter(r=>r.ok).map(r=>r.steps));
+ return '<div class="boss-challenge"><div class="mini-badge">ЕТАП 3 • СЛОЖНОСТ НА АЛГОРИТМИТЕ</div>'+
+ '<h3>🧩 Избери най-ефективния маршрут</h3><p>Роботът трябва да стигне до портала без да удря стени. От трите алгоритъма избери <b>най-краткия, който действително работи</b>. Не всеки бързо изглеждащ маршрут е изпълним.</p>'+
+ '<div class="boss-two"><div>'+bossMap(BOSS_ROUTE_MAP,bossRouteTrail)+'</div><div>'+
+ '<div class="boss-route-choices">'+st.bossRoutePerm.map((index,pos)=>{const route=BOSS_ROUTES[index];return '<button class="boss-route '+(bossRouteSelected===index?"selected":"")+'" data-boss-route="'+index+'"><strong>Маршрут '+String.fromCharCode(65+pos)+'</strong><span class="boss-route-code">'+[...route.seq].join(" ")+'</span><small>'+route.seq.length+' команди</small></button>'}).join("")+'</div></div></div>'+
+ '<div class="row"><button class="btn" data-act="boss-test-route" '+(bossRouteSelected<0?"disabled":"")+'>▶ Изпитай избрания маршрут</button></div>'+
+ feedback(bossNotice,bossNotice.startsWith("✓")?"success":bossNotice.startsWith("⚠")?"error":"")+
+ '<p class="subtle">Оптималният маршрут използва '+smallest+' команди. Точките се дават само когато избраният алгоритъм стига до целта с минималния брой команди.</p>'+
+ bossContinue()+'</div>';
+}
+function bossLaunchScreen(){
+ const active=st.bossDevices;
+ return '<div class="boss-challenge"><div class="mini-badge">ЕТАП 4 • ГОЛЯМОТО СПАСЯВАНЕ</div>'+
+ '<h3>🚀 Активирай спасителната система</h3>'+
+ '<p>Станцията има пет модула. Изключително важно е да спазиш зависимостите: <b>охлаждане преди реактора</b>, <b>навигация и реактор преди предавателя</b>, а <b>сигналът се изпраща последен</b>. Два от първите модули могат да се включат в произволен ред.</p>'+
+ '<div class="boss-devices">'+st.bossDevicePerm.map(id=>{const d=BOSS_DEVICES.find(x=>x.id===id);const on=active.includes(id);return '<button class="boss-device '+(on?"on":"")+'" data-boss-device="'+d.id+'" '+(on?"disabled":"")+'><span class="boss-device-icon">'+d.icon+'</span><span><b>'+escapeHtml(d.name)+'</b><small>'+escapeHtml(d.description)+'</small></span><strong>'+(on?"✓ ОК":"ВКЛЮЧИ")+'</strong></button>'}).join("")+'</div>'+
+ '<div class="row"><span class="mini-badge">Активирани модули: '+active.length+' / 5</span><button class="btn ghost" data-act="boss-reset-devices" '+(st.bossDone[3]?"disabled":"")+'>↻ Рестартирай панела</button></div>'+
+ feedback(bossNotice,bossNotice.startsWith("✓")?"success":bossNotice.startsWith("⚠")?"error":"")+
+ (st.bossDone.every(Boolean)?'<div class="boss-victory"><div class="boss-victory-star">🌍</div><h3>Станцията ALGO-01 е спасена!</h3><p>Всички четири етапа са завършени успешно. Получи отличието „Спасител на станцията“.</p></div>':"")+
+ bossContinue()+'</div>';
+}
 function renderFinal(){
- return heading(4,"Финално предизвикателство","Въпросите и отговорите се разместват при всяка нова игра. След теста изгради собствен алгоритъм и го предай за преглед.")+
- '<div class="subpanel"><h3>Част А · 4 случайни въпроса × 2 XP</h3>'+
- st.quizOrder.map((index,i)=>{const q=allFinalQuestions()[index];return '<div class="question"><strong>'+(i+1)+'. '+escapeHtml(q.q)+'</strong><div class="choice-grid">'+
- st.quizPerm[i].map((j,display)=>'<button class="choice '+(st.quizDone[i]&&q.correct===j?"correct":"")+'" data-final-q="'+i+'" data-final-a="'+j+'" '+(st.quizDone[i]?"disabled":"")+'><b>'+String.fromCharCode(65+display)+'.</b> '+escapeHtml(q.a[j])+'</button>').join("")+
- '</div>'+(st.quizDone[i]?feedback("✓ "+q.why,"success"):"")+'</div>'}).join("")+'</div>'+
- '<div class="subpanel light"><h3>Част Б · Създай свой алгоритъм · 12 XP</h3><p>Мисия: помогни на станцията, като опишеш нов алгоритъм. Например „провери температурата“, „избери по-голямото число“, „подготви робота за зареждане“.</p>'+
- '<div class="field"><label for="freeTask">Каква задача решава алгоритъмът?</label><input id="freeTask" maxlength="230" value="'+escapeHtml(st.free.task)+'" placeholder="Например: проверка дали температурата е опасна"></div>'+
- '<div class="field"><label for="freeInput">Входни данни</label><input id="freeInput" maxlength="230" value="'+escapeHtml(st.free.input)+'" placeholder="Например: измерена температура"></div>'+
- '<div class="field"><label for="freeSteps">Точни инструкции — една на ред</label><textarea id="freeSteps" maxlength="2200" placeholder="1. Прочети температурата&#10;2. Провери дали е над 40&#10;3. Покажи предупреждение или нормален статус">'+escapeHtml(st.free.steps)+'</textarea></div>'+
- '<div class="field"><label for="freeOutput">Изход / резултат</label><input id="freeOutput" maxlength="230" value="'+escapeHtml(st.free.output)+'" placeholder="Например: безопасно / опасно"></div>'+
- '<div class="notice">⚠ Получаваш 12 XP за попълнена структура. Смисловата правилност се преглежда от учителя — това не е автоматична оценка.</div>'+
- feedback(finalNotice,finalNotice.startsWith("✓")?"success":"error")+
- '<div class="row"><button class="btn" data-act="submit-free" '+(st.freeDone?"disabled":"")+'>✦ Предай алгоритъма</button><span class="mini-badge">'+(st.freeDone?"✓ Изпратен за преглед":"Очаква алгоритъм")+'</span></div></div>';
+ const completed=st.bossDone.filter(Boolean).length;
+ return heading(4,"Финален бос: Спаси станцията","Никакво писане на текст — само решения, симулации и управление на реални алгоритми. Четири етапа по 5 XP, общо 20 XP.")+
+ bossProgress()+
+ [bossRepairScreen,bossSensorScreen,bossRoutesScreen,bossLaunchScreen][bossPhase]();
 }
 
 function summary(){return '<div class="trophy"><div class="trophy-icon">'+(countDone()===5?"🏆":"🛰️")+'</div><div class="tagline">'+(countDone()===5?"МИСИЯТА Е ИЗПЪЛНЕНА":"ТЕКУЩ РЕЗУЛТАТ")+'</div><h2>'+escapeHtml(st.nick||"Командире")+', '+(countDone()===5?"спаси станцията!":"продължавай!")+'</h2><div class="trophy-score">'+score()+' / 100 XP</div><p>'+countDone()+' от 5 възстановени модула</p></div>'+

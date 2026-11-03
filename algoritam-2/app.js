@@ -7,7 +7,7 @@ const M=[
  {title:"Диагностика на системата",sub:"7 тайни сигнала",icon:"⌕",badge:"Детектив"},
  {title:"Програмирай робота",sub:"5 приключения",icon:"♟",badge:"Навигатор"},
  {title:"Построй блок-схема",sub:"Два алгоритъма",icon:"◇",badge:"Архитект"},
- {title:"Финално предизвикателство",sub:"Твоят алгоритъм",icon:"✧",badge:"Майстор алгоритми"}
+ {title:"Финален бос: Спаси станцията",sub:"4 аварийни панела",icon:"✧",badge:"Спасител на станцията"}
 ];
 const ORDER=[
  {title:"Събуди спасителния робот",prompt:"Системата е изключена! Подреди командите, така че роботът да получи мисията.",steps:["Включи контролния панел.","Свържи спасителния робот с панела.","Избери режим „Спасителна мисия“.","Въведи целевите координати.","Натисни „Старт“."],input:"Координати на целта",output:"Роботът започва мисията"},
@@ -65,7 +65,7 @@ const FLOW_DECOYS=[
  ["Изведи „нула“","n > 5?"],
  ["Въведи y","x == 100?"]
 ];
-const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""}});
+const mk=()=>({version:3,propOrder:[],propPerm:[],propVariants:[],quizOrder:[],quizPerm:[],flowBankOrder:[],nick:"",group:"",room:"",studentId:"",studentToken:"",points:[0,0,0,0,0],done:[false,false,false,false,false],orderDone:[false,false,false],propDone:Array(7).fill(false),robotDone:[false,false,false,false,false],flowDone:[false,false],quizDone:[false,false,false,false],freeDone:false,free:{task:"",input:"",steps:"",output:""},bossDone:[false,false,false,false],bossDevices:[],bossRoutePerm:[]});
 let st=mk();
 try{const o=JSON.parse(localStorage.getItem(STORE));if(o&&o.version===3&&Array.isArray(o.orderDone)&&o.orderDone.length===3)st=Object.assign(mk(),o)}catch(e){}
 let teacher=null;
@@ -82,14 +82,14 @@ function tally(){const prev=st.done.slice();
  st.points[1]=st.propDone.reduce((n,b,i)=>n+(b?(i===6?2:3):0),0);
  st.points[2]=st.robotDone.filter(Boolean).length*4;
  st.points[3]=st.flowDone.filter(Boolean).length*10;
- st.points[4]=st.quizDone.filter(Boolean).length*2+(st.freeDone?12:0);
- st.done=[st.orderDone.every(Boolean),st.propDone.every(Boolean),st.robotDone.every(Boolean),st.flowDone.every(Boolean),st.quizDone.every(Boolean)&&st.freeDone];
+ st.points[4]=st.bossDone.filter(Boolean).length*5;
+ st.done=[st.orderDone.every(Boolean),st.propDone.every(Boolean),st.robotDone.every(Boolean),st.flowDone.every(Boolean),st.bossDone.every(Boolean)];
  if(st.done.some((v,i)=>v&&!prev[i])){confetti();notify("✦ Възстановен модул! Отключи следващата мисия.")}
  persist();
 }
 function persist(){try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){} renderHud();if(st.room&&st.studentId&&st.studentToken)sendProgress()}
 let syncTimer=null;
-function sendProgress(){clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{try{const res=await fetch("/api/class/progress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:st.room,studentId:st.studentId,studentToken:st.studentToken,progress:{points:st.points,done:st.done,final:st.freeDone?st.free:{}}})});if(!res.ok&&res.status===404)notify("Онлайн стаята е изтекла. Напредъкът е запазен на устройството.")}catch(e){}},600)}
+function sendProgress(){clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{try{const res=await fetch("/api/class/progress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:st.room,studentId:st.studentId,studentToken:st.studentToken,progress:{points:st.points,done:st.done,final:{task:"Финален бос: Спаси станцията",input:"Четири интерактивни етапа",steps:"Завършени етапи: "+st.bossDone.filter(Boolean).length+"/4",output:st.bossDone.every(Boolean)?"Станцията е спасена":"В процес на изпълнение"}}})});if(!res.ok&&res.status===404)notify("Онлайн стаята е изтекла. Напредъкът е запазен на устройството.")}catch(e){}},600)}
 function ensureVariations(){
  if(!Array.isArray(st.propOrder)||st.propOrder.length!==7)st.propOrder=shuffle([0,1,2,3,4,5,6]);
  if(!Array.isArray(st.propPerm)||st.propPerm.length!==7)st.propPerm=Array.from({length:7},()=>shuffle([0,1,2,3]));
@@ -97,6 +97,11 @@ function ensureVariations(){
  if(!Array.isArray(st.quizOrder)||st.quizOrder.length!==4)st.quizOrder=shuffle(Array.from({length:allFinalQuestions().length},(_,i)=>i)).slice(0,4);
  if(!Array.isArray(st.quizPerm)||st.quizPerm.length!==4)st.quizPerm=Array.from({length:4},()=>shuffle([0,1,2,3]));
  if(!Array.isArray(st.flowBankOrder)||st.flowBankOrder.length!==2)st.flowBankOrder=[shuffle([0,1,2,3,4,5,6,7]),shuffle([0,1,2,3,4,5,6,7])];
+ if(!Array.isArray(st.bossDone)||st.bossDone.length!==4)st.bossDone=[false,false,false,false];
+ if(!Array.isArray(st.bossDevices))st.bossDevices=[];
+ if(!Array.isArray(st.bossRoutePerm)||st.bossRoutePerm.length!==3)st.bossRoutePerm=shuffle([0,1,2]);
+ st.points[4]=st.bossDone.filter(Boolean).length*5;
+ st.done[4]=st.bossDone.every(Boolean);
  try{localStorage.setItem(STORE,JSON.stringify(st))}catch(e){}
 }
 function activeProperty(){const i=st.propOrder[propIdx];return {concept:i,q:(st.propVariants[i]?ALT_PROPS:PROPS)[i]}}
@@ -331,9 +336,9 @@ case "check-flow":{const task=FLOW[flowIdx];if(task.p.every(([key,text])=>flowPl
 case "clear-flow":setupFlow(flowIdx);render();break;
 case "hint-flow":flowNotice="Подсказка: елипсите са за Начало и Край. В успоредника се въвеждат или извеждат данни. Ромбът проверява условие, а „ДА“ и „НЕ“ водят до различни изходи.";render();break;
 case "simulate-flow":{if(!st.flowDone[flowIdx])break;const raw=$("flowExample").value.trim();if(!raw||!Number.isFinite(Number(raw))){flowNotice="⚠ Въведи валидно число.";render();break}const n=Number(raw),yes=flowIdx===0?n%2===0:n>0;flowNotice="✓ При вход "+n+" условието е "+(yes?"ДА":"НЕ")+". Резултат: "+(flowIdx===0?(yes?"четно":"нечетно"):(yes?"да":"не"))+".";render();break}
-case "submit-free":{const f=st.free;const steps=f.steps.split(/\n/).filter(x=>x.replace(/^\s*\d+[.)]\s*/,"").trim().length>=6);if(f.task.trim().length<8||f.input.trim().length<3||f.output.trim().length<3||steps.length<3){finalNotice="Попълни задачата, входа, изхода и поне 3 смислени стъпки на отделни редове.";render();break}st.freeDone=true;finalNotice="✓ Структурата е предадена. Учителят ще провери смисловата правилност.";tally();render();break}
+
 case "print":window.print();break;
-case "export-json":downloadBlob(new Blob([JSON.stringify({game:"ALGO-01",nickname:st.nick,group:st.group,points:st.points,done:st.done,final:st.free},null,2)],{type:"application/json"}),"ALGO01-"+(st.nick.replace(/[^a-zA-Z0-9а-яА-Я]/g,"").slice(0,20)||"student")+".json");break;
+case "export-json":downloadBlob(new Blob([JSON.stringify({game:"ALGO-01",nickname:st.nick,group:st.group,points:st.points,done:st.done,final:{bossDone:st.bossDone,bossDevices:st.bossDevices}},null,2)],{type:"application/json"}),"ALGO01-"+(st.nick.replace(/[^a-zA-Z0-9а-яА-Я]/g,"").slice(0,20)||"student")+".json");break;
 case "create-room":await createRoom();break;
 case "new-room":if(confirm("Създаване на нова стая? Преди това експортирай резултатите от текущата стая."))await createRoom();break;
 case "copy-room":if(teacher){const link=location.origin+"/?room="+teacher.code;try{await navigator.clipboard.writeText(link);notify("Линкът е копиран: "+link)}catch(e){notify(link)}}break;

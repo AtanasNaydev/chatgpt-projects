@@ -300,7 +300,7 @@ function teamView(i){
    bindFields(stage.querySelector('#work-fields'),teamFields.slice(2,5));
    bindFields(stage.querySelector('#short-fields'),teamFields.slice(0,2));
   }else if(step===1){
-   stage.innerHTML=`<h3>Разменете възражение</h3><p>Прочетете работния си вариант на <b>екип ${next}</b>. Получете едно възражение или нов пример от <b>екип ${previous}</b>. Размяната може да е устна или на карта.</p>
+   stage.innerHTML=`<h3>Разменете възражение</h3><p><b>Вашият казус:</b> „${team.case}“</p><p>Дайте своята формулировка на <b>екип ${next}</b>. Екип ${next} ви връща талона с възражение или нов пример. Запишете полученото възражение по-долу.</p><p>Междувременно разгледайте талона на <b>екип ${previous}</b>, добавете своето възражение и го върнете на екип ${previous}. Можете да размените възраженията и устно.</p>
    <div id="peer-fields" class="stack"></div><fieldset class="quizitem"><legend>Вашето решение</legend><label><input type="radio" name="verdict" value="Запазваме"> Запазваме работния вариант</label><label><input type="radio" name="verdict" value="Редактираме"> Редактираме работния вариант</label></fieldset><div id="response-fields" class="stack two"></div>`;
    bindFields(stage.querySelector('#peer-fields'),teamFields.slice(5,6));
    bindFields(stage.querySelector('#response-fields'),teamFields.slice(6));

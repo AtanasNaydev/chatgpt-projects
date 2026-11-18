@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Лаборатория за дефиниции</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #13243a;
+  --muted: #465c6b;
+  --paper: #f1f6f5;
+  --white: #ffffff;
+  --line: #cededb;
+  --navy: #102438;
+  --teal: #086253;
+  --mint: #b5f2d7;
+  --gold: #f8d187;
+  --team: #086253;
+  --team-pale: #e3f4ec;
+  --shadow: 0 10px 24px #16383210;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.46 system-ui, 'Segoe UI', sans-serif; }
+button, textarea { font: inherit; }
+a { color: inherit; }
+button, summary { cursor: pointer; }
+:focus-visible { outline: 3px solid #ad5d09; outline-offset: 3px; }
+header { background: #fbfdfc; border-bottom: 1px solid var(--line); }
+.bar, main, footer { max-width: 1332px; margin: 0 auto; }
+.bar { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 32px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--navy); font-size: 1rem; font-weight: 790; text-decoration: none; }
+.brand i { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--navy); color: var(--mint); font: 24px/1 Georgia, serif; }
+nav, .actions, .chips, .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; border-radius: 9px; color: var(--muted); font-weight: 680; text-decoration: none; }
+nav a:hover { background: #edf4f1; }
+nav a[aria-current="page"] { background: #d9efe5; color: #103e33; }
+main { padding: 27px 32px 16px; }
+h1, h2, h3, p { margin: 0 0 12px; }
+h1, h2 { letter-spacing: -.04em; }
+h1 { font-size: clamp(43px, 6.5vw, 89px); line-height: .98; font-weight: 780; }
+h2 { font-size: clamp(32px, 4vw, 56px); line-height: 1.05; }
+h3 { font-size: clamp(22px, 2.3vw, 30px); line-height: 1.18; letter-spacing: -.02em; }
+.eyebrow, .step { display: block; margin: 0 0 9px; font-size: .77rem; font-weight: 820; letter-spacing: .095em; text-transform: uppercase; color: var(--teal); }
+.hero { position: relative; overflow: hidden; isolation: isolate; min-height: 368px; display: grid; align-items: center; border-radius: 24px; padding: clamp(29px, 4.4vw, 62px); background: radial-gradient(ellipse at 81% 40%, #214a55, transparent 65%), var(--navy); color: white; }
+.hero::before { position: absolute; inset: 0; content: ''; z-index: -1; background: linear-gradient(90deg,#102438 5%,transparent 82%), repeating-linear-gradient(90deg,transparent 0 35px,#c7f2e514 35px 36px), repeating-linear-gradient(0deg,transparent 0 35px,#c7f2e514 35px 36px); }
+.hero-copy { max-width: 64%; z-index: 1; }
+.hero .eyebrow { color: var(--mint); }
+.hero-copy p { max-width: 41ch; margin: 18px 0 0; color: #e1eeec; font-size: clamp(17px, 1.7vw, 23px); }
+.hero-meta { margin-top: 21px; display: flex; gap: 8px; flex-wrap: wrap; }
+.hero-meta span { border: 1px solid #769b9a; border-radius: 30px; padding: 4px 11px; color: #ecfaf6; font-size: .82rem; font-weight: 700; }
+.hero-art { position: absolute; width: min(39%,475px); right: 2%; top: 8%; height: 84%; }
+.grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-top: 16px; }
+.card, .panel { border: 1px solid var(--line); border-radius: 17px; padding: clamp(16px,2.1vw,26px); background: var(--white); box-shadow: var(--shadow); }
+.card { border-top: 3px solid var(--team); }
+.card p, .muted { color: var(--muted); }
+.card a { margin-top: 4px; }
+.panel { margin: 14px 0; }
+[data-team="1"] { --team: #096756; --team-pale: #e2f3ec; }
+[data-team="2"] { --team: #484489; --team-pale: #edeafa; }
+[data-team="3"] { --team: #9a3751; --team-pale: #fae9ee; }
+[data-team="4"] { --team: #8a500b; --team-pale: #f8edd9; }
+[data-team="5"] { --team: #225a88; --team-pale: #e5eff8; }
+.team-grid { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.team-grid .card { padding: 19px 16px; }
+.team-number, .mode-icon { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 14px; border-radius: 13px; background: var(--team-pale); color: var(--team); font-size: 1.37rem; font-weight: 850; }
+.mode-icon svg { width: 27px; height: 27px; }
+.team-shell .eyebrow, .team-grid .eyebrow { color: var(--team); }
+.team-shell .quote { border-color: var(--team); background: var(--team-pale); }
+.team-shell .chips button[aria-pressed="true"] { background: var(--team); border-color: var(--team); }
+.actions { margin-top: 12px; }
+.btn, .chips button, .prediction button {
+  min-height: 46px;
+  border: 1px solid var(--teal);
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-weight: 730;
+}
+.btn { display: inline-flex; align-items: center; justify-content: center; background: var(--teal); color: white; text-decoration: none; }
+.btn:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.alt, .chips button, .prediction button { background: white; border-color: #88a5a0; color: var(--ink); }
+.btn:disabled, .chips button:disabled { opacity: .57; cursor: default; }
+.chips button[aria-pressed="true"], .prediction button[aria-pressed="true"] { background: var(--navy); color: white; border-color: var(--navy); }
+.quote { margin: 0 0 13px; padding: 12px 16px; border-left: 4px solid var(--teal); border-radius: 4px 10px 10px 4px; background: #e5f3ed; color: var(--navy); font-size: clamp(21px,2.4vw,33px); font-weight: 750; line-height: 1.22; }
+#stage { padding: clamp(15px,1.7vw,23px); }
+#stage .step { margin-bottom: 7px; }
+#stage > p:not(.step) { margin-bottom: 9px; }
+.controls { margin: 8px 0; }
+.checkline { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 5px 10px; border: 1px solid #96b0ab; border-radius: 8px; font-weight: 650; }
+.checkline:has(input:checked) { background: #deefe7; border-color: #739c8e; }
+input[type="checkbox"], input[type="radio"] { flex: none; width: 19px; height: 19px; accent-color: var(--teal); }
+.table-wrap { overflow-x: auto; margin-top: 11px; border: 1px solid var(--line); border-radius: 11px; }
+table { width: 100%; min-width: 680px; border-collapse: collapse; }
+th, td { padding: 6px 11px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+thead th { background: var(--navy); color: white; }
+tbody tr:last-child > * { border-bottom: 0; }
+tbody .match { background: #e0f2e8; }
+tbody .mismatch { background: #ffeed2; }
+tbody .mismatch td:last-child { color: #78430d; font-weight: 800; }
+.instrument { display: flex; align-items: center; gap: 9px; }
+.instrument svg { width: 45px; height: 45px; flex: none; padding: 4px; border-radius: 9px; color: var(--teal); background: #f4f8f6; }
+.prediction { display: flex; gap: 6px; }
+.prediction button { min-width: 51px; min-height: 44px; padding: 4px 8px; }
+.feedback { margin: 11px 0 0; font-weight: 750; }
+.small { font-size: .88rem; }
+.stack label { display: block; margin: 10px 0; font-weight: 710; }
+.stack textarea { display: block; width: 100%; min-height: 59px; margin-top: 4px; padding: 8px 11px; border: 1px solid #839c9c; border-radius: 8px; resize: vertical; background: #fbfdfc; color: var(--ink); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 16px; }
+.excerpt { margin-bottom: 9px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.excerpt dt { color: var(--team); font-weight: 760; }
+.excerpt dd { margin: 0 0 9px; }
+.quizitem { border: 1px solid var(--line); border-radius: 11px; margin: 12px 0; padding: 9px 13px; }
+.quizitem legend { padding: 0 6px; font-weight: 750; }
+.quizitem label { display: flex; align-items: center; min-height: 44px; margin: 4px 0; padding: 5px 8px; border-radius: 7px; gap: 8px; }
+.quizitem label:has(input:checked) { background: #dcefe6; }
+.project-options { list-style: none; padding: 0; display: grid; gap: 8px; }
+.project-options li { padding: 9px 12px; border-radius: 8px; background: #e7f3ee; font-size: clamp(18px,2.4vw,28px); }
+.correct { color: #065647; }
+.incorrect { color: #8d2a24; }
+details { margin-top: 9px; }
+details > *:last-child { margin-bottom: 0; }
+summary { padding: 7px 0; color: var(--teal); font-weight: 780; }
+.reveal div { padding: 10px 13px; border-radius: 8px; background: #fff0d5; }
+footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
+@media (max-width: 1060px) { .team-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 720px) {
+  .bar { flex-wrap: wrap; justify-content: flex-start; }
+  .bar, main, footer { padding-right: 15px; padding-left: 15px; }
+  nav { gap: 3px; }
+  nav a { padding: 5px 9px; }
+  main { padding-top: 15px; }
+  .grid, .two { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .hero { min-height: 310px; border-radius: 17px; }
+  .hero-copy { max-width: 100%; }
+  .hero-art { opacity: .19; width: 69%; right: 0; }
+}
+@media print { header, footer, .actions, .chips { display: none !important; } body { background: white; } .panel, .card { box-shadow: none; break-inside: avoid; } }
+.terms { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin: 10px 0; }
+.term { margin: 0; padding: 11px 13px; border-radius: 8px; background: #e9f4ee; }
+.term:nth-child(2) { background: #e9eefb; }
+.term:nth-child(3) { background: #fbefd9; }
+.term dt { font-weight: 740; }
+.term dd { margin: 2px 0 0; }
+.team-shell #team-stage { border-top: 3px solid var(--team); }
+@media (max-width: 600px) { .terms { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header><div class="bar"><a class="brand" href="#start"><i aria-hidden="true">∴</i> Лаборатория за дефиниции</a><nav aria-label="Режими"><a href="#start">Начало</a><a href="#board">Дъска</a><a href="#teams">Екипи</a><a href="#quiz">Тест</a></nav></div></header>
+<main id="app"></main>
+<footer>Философия и програмиране · 10. клас · 19 ноември 2026 г.</footer>
+<script>
+const content={"teams":[{"name":"Самолет","structure":"Магазин е помещение за продажба на стоки.","case":"Слонът е голям бозайник.","prompt":"Дайте пример за голям бозайник, който не е слон. Какво доказва примерът?","extras":["Чукът е инструмент за извършване на ремонти.","Демокрация е режим на държавно управление.","Религиозен е човек, който вярва в Светия дух."],"challenge":"Ако сте добавили „има бивни“, проверете моржа. Ако сте добавили „има дълъг хобот“, обяснете кой белег изключва жирафа."},{"name":"Русалка","structure":"Билкарят е човек, който събира билки.","case":"Логиката е наука за логичното.","prompt":"Коя дума връща обяснението към началното понятие? Дайте редакция, която обяснява какво се изучава.","extras":["Икономиката е наука, която изследва процесите, възникващи от икономическите действия на хората.","Патриотизмът е това, което прави Иван."],"challenge":"Остава ли кръг, ако заменим „логичното“ с „логически правилното“? Кои думи в редакцията обясняват какво изучава логиката?"},{"name":"Ягода","structure":"Чаят е топла напитка от запарени листа на растение.","case":"Растенията не са животни.","prompt":"Назовете нещо, което също не е животно. Какво липсва, за да се разбере какво са растенията?","extras":["Икономиката не е статистика.","Наивен човек е човек, който не е виновен."],"challenge":"Гъбата също не е животно. Покажете кой положителен белег във вашето обяснение помага да я разграничите."},{"name":"Кентавър","structure":"Етажерката е мебел с открити рафтове.","case":"Лъвът е царят на животните.","prompt":"Коя дума е употребена преносно? Какъв род и какъв отличителен белег ще използвате вместо нея?","extras":["Велосипедът е нещо, на което децата се возят до училище.","Човешко същество е всяко живо същество, родено от човек."],"challenge":"Ако някой никога не е виждал лъв, какво ще разбере от думата „цар“? Посочете една наблюдаема характеристика."},{"name":"Хладилник","structure":"Кухнята е помещение за приготвяне на храна.","case":"Престолонаследник е човек, който има право да наследи престола на даден владетел.","prompt":"Защитете или оспорете дефиницията. Проверете дали тя включва всеки роднина на владетеля или само човек с право да наследи престола.","extras":["Познанието е истинно мнение."],"challenge":"Братът на владетеля е негов роднина, но правилата изключват брата от наследяването. Включва ли го вашата дефиниция?"}],"quiz":[{"q":"Каква е структурата на класическата явна дефиниция чрез род и видово отличие?","a":["Само отрицателни признаци и изключения.","По-общо родово понятие и отличителен белег.","Обяснение чрез произхода на думата.","Определяне чрез практическия ефект върху човека."],"k":1,"why":"Родът посочва по-общата група, а отличителният белег разграничава вида."},{"q":"Какво изисква правилото за съразмерност?","a":["Определящото понятие да има по-тесен обем.","Определящото понятие да има по-широк обем.","Двете понятия да имат еднакъв обем.","Обемът е без значение, ако изречението звучи логично."],"k":2,"why":"Дефиницията трябва да включва точно случаите от определяемото понятие."},{"q":"Каква грешка има в „Свободата е способността на човека да бъде свободен“?","a":["Порочен кръг.","Отрицателна дефиниция.","Прекалено широка дефиниция.","Неясна метафора."],"k":0,"why":"„Свободен“ връща обяснението към понятието, което трябва да изясним."},{"q":"Защо по възможност избягваме определения като „Мъдростта не е глупост“?","a":["Винаги нарушават съразмерността.","Автоматично водят до порочен кръг.","Задължително съдържат метафори.","Казват какво не е предметът, без да обясняват какво представлява."],"k":3,"why":"Отрицанието оставя твърде много възможности и не посочва съществения белег."},{"q":"Кое правило нарушава най-ясно изразът „Архитектурата е замръзнала музика“?","a":["Съразмерност на обемите.","Яснота и прецизност на израза.","Избягване на отрицателни определения.","Избягване на логически кръг."],"k":1,"why":"„Замръзнала музика“ е метафора, която не посочва ясни отличителни признаци."},{"q":"Кое изискване нарушава „Рибата е животно, което живее във водата“?","a":["Да се избягват отрицателни определения.","Да се избягва повторение на определяемото.","Дефиницията да е съразмерна.","Да се използва научна метафора."],"k":2,"why":"Определението включва и делфина, който живее във водата, но е бозайник."}]};
+const app=document.querySelector('#app');
+const states=Object.fromEntries(content.teams.map((_,i)=>[i,{}]));
+const alphabet=['А','Б','В','Г'];
+const teamFields=[['definition','Ваша дефиниция'],['structure','Определяемо понятие / род / отличителен белег'],['example','Ваш пример или възражение'],['reason','Извод и аргумент'],['revision','Работна формулировка или защита на оригинала'],['peer','Възражение или нов пример от другия екип'],['reply','Отговор на възражението'],['final','Окончателна формулировка или основание да я запазите']];
+const board={step:0,features:{measure:true,temp:false,touch:false},extra:false,checked:false,predictions:{}};
+const instruments=[
+ {name:'Контактен термометър',id:'thermo',measure:true,temp:true,touch:true,expected:true},
+ {name:'Линийка',id:'ruler',measure:true,temp:false,touch:false,expected:false},
+ {name:'Хронометър',id:'clock',measure:true,temp:false,touch:false,expected:false},
+ {name:'Безконтактен термометър',id:'remote',measure:true,temp:true,touch:false,expected:true}
+];
+const icons={
+ thermo:'<path d="M15 22V7a3 3 0 0 1 6 0v15a6 6 0 1 1-6 0Z"/><path d="M18 14v14m6-18h5m-5 5h4"/><circle cx="18" cy="28" r="2"/>',
+ ruler:'<path d="M5 26 25 6l6 6-20 20Z"/><path d="m10 21 3 3m2-8 3 3m2-8 3 3"/>',
+ clock:'<circle cx="18" cy="21" r="11"/><path d="M15 5h6m-3 0v5m8 2 2-2m-10 5v7l4 2"/>',
+ remote:'<path d="M6 12h17l5 5v6H17l-2 9H8l2-12H6Z"/><path d="M31 14h4m-4 5h5m-5 5h4M10 16h8"/>'
+};
+function esc(value=''){return value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function load(i){try{return JSON.parse(localStorage.getItem('definition-lab-2026-team-'+i))||{};}catch{return {};}}
+function save(i){try{localStorage.setItem('definition-lab-2026-team-'+i,JSON.stringify(states[i]));}catch{/* Entries are retained in memory for this open tab. */}}
+content.teams.forEach((_,i)=>{states[i]=load(i);});
+const modeIcons={
+ board:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8m-4-4v4m-5-8 3-3 3 2 4-4"/>',
+ teams:'<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 20v-2a5 5 0 0 1 10 0v2m1-6a5 5 0 0 1 7 4v2"/>',
+ quiz:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="m8 9 2 2 4-4m-6 9h8"/>'
+};
+function modeIcon(mode){
+ return `<span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${modeIcons[mode]}</svg></span>`;
+}
+function home(){
+ app.innerHTML=`<section class="hero"><div class="hero-copy">
+ <span class="eyebrow">19 ноември · Световен ден на философията</span><h1>Лаборатория<br>за дефиниции</h1>
+ <p>Как да покажем, че една дефиниция включва твърде много или пропуска важен случай?</p>
+ <div class="hero-meta"><span>10. клас</span><span>45 минути</span><span>Философия и програмиране</span></div></div>
+ <svg class="hero-art" viewBox="0 0 450 330" role="img" aria-label="Дефиниция, проверка и аргумент" xmlns="http://www.w3.org/2000/svg">
+ <path d="M119 91v55h52m82 14h37v70" fill="none" stroke="#b5f2d7" stroke-width="2.5" stroke-dasharray="5 6"/>
+ <circle cx="119" cy="146" r="5" fill="#f8d187"/><circle cx="290" cy="160" r="5" fill="#f8d187"/>
+ <g fill="#142f42" stroke="#79b9ab" stroke-width="1.5"><rect x="18" y="20" width="220" height="72" rx="14"/><rect x="146" y="124" width="236" height="72" rx="14"/><rect x="231" y="228" width="194" height="72" rx="14"/></g>
+ <g fill="#b5f2d7"><rect x="31" y="33" width="46" height="46" rx="10"/><rect x="159" y="137" width="46" height="46" rx="10"/><rect x="244" y="241" width="46" height="46" rx="10"/></g>
+ <g stroke="#102438" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" fill="none"><path d="M44 49h20m-20 7h15m-15 7h18"/><path d="m171 159 7 7 15-17"/><path d="M257 253h20v14h-11l-6 5v-5h-3Z"/></g>
+ <g fill="#f3fffa" font-family="system-ui, sans-serif" font-size="22" font-weight="700"><text x="91" y="64">Дефиниция</text><text x="220" y="168">Проверка</text><text x="303" y="272">Аргумент</text></g>
+ </svg></section>
+ <div class="grid"><section class="card" data-team="1">${modeIcon('board')}<span class="eyebrow">01 · Обща работа</span><h3>Интерактивна дъска</h3><p>Разгледайте определение и проверете как работи едно правило.</p><a class="btn" href="#board">Към дъската</a></section>
+ <section class="card" data-team="2">${modeIcon('teams')}<span class="eyebrow">02 · Работа на лаптоп</span><h3>Екипни задачи</h3><p>Разменете възражение и подгответе аргумент за защита.</p><a class="btn alt" href="#teams">Към екипите</a></section>
+ <section class="card" data-team="4">${modeIcon('quiz')}<span class="eyebrow">03 · Самостоятелно</span><h3>Проверка на знанията</h3><p>Шест въпроса за правилата на дефиницията.</p><a class="btn alt" href="#quiz">Към теста</a></section></div>`;
+}
+
+const stages=['Структура','Лаборатория','Защита'];
+function boardView(){
+ app.innerHTML='<span class="eyebrow">Режим за интерактивна дъска</span><h2>От дефиниция към проверка</h2><div class="chips" id="steps"></div><section id="stage" class="panel"></section>';
+ document.querySelector('#steps').innerHTML=stages.map((name,i)=>`<button type="button" data-step="${i}">${i+1}. ${name}</button>`).join('');
+ document.querySelectorAll('[data-step]').forEach(btn=>btn.onclick=()=>{board.step=Number(btn.dataset.step);renderStage();});
+ renderStage();
+}
+function renderStage(){
+ document.querySelectorAll('[data-step]').forEach(btn=>btn.setAttribute('aria-pressed',String(Number(btn.dataset.step)===board.step)));
+ const stage=document.querySelector('#stage');
+ if(board.step===0){
+  stage.innerHTML=`<p class="step">01 / Структура на дефиницията</p><div class="quote">Пейката е градинска мебел за сядане на няколко души.</div><p>Кое понятие определяме? Кой е родът? Кой белег разграничава пейката?</p><details><summary>Покажи разбор</summary><dl class="terms"><div class="term"><dt>Определяемо понятие</dt><dd>пейка</dd></div><div class="term"><dt>Род</dt><dd>мебел за сядане</dd></div><div class="term"><dt>Отличителен белег в примера</dt><dd>за няколко души</dd></div></dl><p>Думата „градинска“ поставя въпроса дали определението включва пейката в коридора.</p></details><details><summary>Откриващ казус от „Философско ателие“</summary><p>Ученик твърди, че единствената част на речта е съществителното. Когато учителят посочва глагола и прилагателното, ученикът обявява и тях за съществителни. Какво трябва да обоснове, за да приеме учителят твърдението му?</p></details>`;
+ }else if(board.step===1){
+  stage.innerHTML=`<p class="step">02 / Практическа проверка</p><div class="quote">Термометърът е измервателен уред.</div><p>Изберете признаци. Правилото включва уреда, когато той отговаря на <b>всички</b> избрани признаци.</p><div class="controls"><label class="checkline"><input type="checkbox" data-feature="measure"> Измервателен уред</label><label class="checkline"><input type="checkbox" data-feature="temp"> Измерва температура</label><label class="checkline"><input type="checkbox" data-feature="touch"> Изисква допир</label></div><div class="actions"><button class="btn" id="run">Провери правилото</button><button class="btn alt" id="extra">Разкрий новия уред</button><button class="btn alt" id="reset">Върни началното правило</button></div><div id="instrument-results" aria-live="polite"></div>`;
+  stage.querySelectorAll('[data-feature]').forEach(input=>{input.checked=board.features[input.dataset.feature];input.onchange=()=>{board.features[input.dataset.feature]=input.checked;board.checked=false;board.predictions={};renderInstruments();};});
+  stage.querySelector('#run').onclick=()=>{board.checked=true;renderInstruments();document.querySelector('#instrument-results .feedback').focus();};
+  stage.querySelector('#extra').onclick=()=>{board.extra=true;board.checked=false;board.predictions={};renderInstruments();stage.querySelector('[data-item]').focus();};
+  stage.querySelector('#reset').onclick=()=>{board.features={measure:true,temp:false,touch:false};board.extra=false;board.checked=false;board.predictions={};renderStage();document.querySelector('[data-item]').focus();};
+  renderInstruments();
+ }else{
+  stage.innerHTML='<p class="step">03 / Защита пред класа</p><p>Говорителят има 60 секунди за аргумента и отговора на екипа. После разкрийте ново възражение.</p><div class="chips" id="defenses"></div><div id="defense-case"></div>';
+  stage.querySelector('#defenses').innerHTML=content.teams.map((_,i)=>`<button data-defense="${i}">Екип ${i+1}</button>`).join('');
+  const show=i=>{stage.querySelectorAll('[data-defense]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.defense)===i)));stage.querySelector('#defense-case').innerHTML=`<div class="panel"><div class="quote">${content.teams[i].case}</div><p>${content.teams[i].prompt}</p><details class="reveal"><summary>Разкрий нов пример или възражение</summary><div>${content.teams[i].challenge}</div></details></div>`;};
+  stage.querySelectorAll('[data-defense]').forEach(btn=>btn.onclick=()=>show(Number(btn.dataset.defense)));
+  show(0);
+ }
+}
+function renderInstruments(){
+ const target=document.querySelector('#instrument-results');
+ const required=Object.keys(board.features).filter(key=>board.features[key]);
+ const cases=instruments.slice(0,board.extra?4:3);
+ const completed=cases.every(item=>Object.hasOwn(board.predictions,item.id));
+ const run=document.querySelector('#run');
+ run.disabled=!required.length||!completed||board.checked;
+ document.querySelector('#extra').disabled=board.extra;
+ let ruleErrors=0;
+ let predictionErrors=0;
+ const yesNo=value=>value?'Да':'Не';
+ const rows=cases.map(item=>{
+  const result=required.every(key=>item[key]);
+  const matchesTarget=item.expected===result;
+  const prediction=board.predictions[item.id];
+  const matchesPrediction=prediction===result;
+  if(!matchesTarget)ruleErrors++;
+  if(!matchesPrediction)predictionErrors++;
+  const picker=board.checked?yesNo(prediction):
+   `<div class="prediction" role="group" aria-label="Прогноза за ${item.name}">${[true,false].map(value=>`<button type="button" data-item="${item.id}" data-value="${value}" aria-pressed="${prediction===value}">${yesNo(value)}</button>`).join('')}</div>`;
+  const status=matchesTarget?'Правилото класифицира вярно':result?'Правилото включва погрешно':'Правилото пропуска';
+  return `<tr class="${board.checked?(matchesTarget?'match':'mismatch'):''}"><th scope="row"><span class="instrument"><svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[item.id]}</svg>${item.name}</span></th><td>${picker}</td><td>${board.checked?yesNo(result):'—'}</td><td>${board.checked?yesNo(item.expected):'—'}</td><td>${board.checked?status:'—'}</td></tr>`;
+ }).join('');
+ const feedback=board.checked
+  ? `Прогнози, които съвпаднаха с резултата: ${cases.length-predictionErrors} от ${cases.length}. Разминавания с правилната класификация: ${ruleErrors}.`
+  : !required.length?'Изберете поне един признак.':completed?'Прогнозите са записани. Стартирайте проверката.':'За всеки уред прогнозирайте дали правилото ще го включи.';
+ target.innerHTML=`<div class="table-wrap"><table><thead><tr><th scope="col">Уред</th><th scope="col">Прогноза на класа</th><th scope="col">Включва ли го правилото?</th><th scope="col">Термометър ли е?</th><th scope="col">Извод</th></tr></thead><tbody>${rows}</tbody></table></div><p class="feedback" role="status" tabindex="-1">${feedback}</p>${board.checked?'<p class="muted small">Кой ред е контрапример за правилото? Променете признак или разкрийте новия уред.</p>':''}`;
+ target.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{
+  const {item,value}=button.dataset;
+  board.predictions[item]=value==='true';
+  renderInstruments();
+  target.querySelector(`[data-item="${item}"][data-value="${value}"]`).focus();
+ });
+}
+function teams(){
+ app.innerHTML=`<span class="eyebrow">Режим за екипи</span><h2>Проверете дефиниция</h2><p class="muted">Изберете номера, който получите от учителя. Работете първо по основния казус.</p><div class="grid team-grid">${content.teams.map((team,i)=>`<section class="card" data-team="${i+1}"><span class="team-number" aria-hidden="true">0${i+1}</span><span class="eyebrow">Екип ${i+1}</span><h3>${team.name}</h3><a class="btn alt" href="#team-${i+1}">Влез в екип ${i+1}</a></section>`).join('')}</div>`;
+}
+const teamSteps=['Анализирай','Провери','Защити'];
+const teamStepByIndex=content.teams.map(()=>0);
+function teamView(i){
+ const team=content.teams[i];
+ const state=states[i];
+ const previous=(i+4)%5+1;
+ const next=(i+1)%5+1;
+ app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1} · ${team.name}</h2>
+ <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
+ <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
+ const stage=document.querySelector('#team-stage');
+ const steps=document.querySelector('#team-steps');
+ steps.innerHTML=teamSteps.map((label,j)=>`<button type="button" data-team-step="${j}">${j+1}. ${label}</button>`).join('');
+ steps.querySelectorAll('button').forEach(button=>button.onclick=()=>show(Number(button.dataset.teamStep)));
+ function bindFields(container,fields){
+  fields.forEach(([key,label])=>{
+   const wrapper=document.createElement('label');
+   wrapper.textContent=label;
+   const input=document.createElement('textarea');
+   input.rows=2;
+   input.value=state[key]||'';
+   input.addEventListener('input',()=>{state[key]=input.value;save(i);});
+   wrapper.append(input);
+   container.append(wrapper);
+  });
+ }
+ function show(step){
+  teamStepByIndex[i]=step;
+  steps.querySelectorAll('button').forEach((button,j)=>button.setAttribute('aria-pressed',String(j===step)));
+  if(step===0){
+   stage.innerHTML=`<h3>Какво работи в определението?</h3><p>${team.prompt}</p><div id="work-fields" class="stack two"></div>
+   <details><summary>Кратки задачи по структура</summary><p>Дефинирайте „${team.name.toLowerCase()}“. После отделете определяемото понятие, рода и белега в изречението „${team.structure}“</p><div id="short-fields" class="stack two"></div></details>
+   <details><summary>Допълнителни задачи</summary><p>Посочете спазеното или нарушеното правило и подкрепете извода си.</p><ul>${team.extras.map(item=>`<li>${item}</li>`).join('')}</ul></details>`;
+   bindFields(stage.querySelector('#work-fields'),teamFields.slice(2,5));
+   bindFields(stage.querySelector('#short-fields'),teamFields.slice(0,2));
+  }else if(step===1){
+   stage.innerHTML=`<h3>Разменете възражение</h3><p>Прочетете работния си вариант на <b>екип ${next}</b>. Получете едно възражение или нов пример от <b>екип ${previous}</b>. Размяната може да е устна или на карта.</p>
+   <div id="peer-fields" class="stack"></div><fieldset class="quizitem"><legend>Вашето решение</legend><label><input type="radio" name="verdict" value="Запазваме"> Запазваме работния вариант</label><label><input type="radio" name="verdict" value="Редактираме"> Редактираме работния вариант</label></fieldset><div id="response-fields" class="stack two"></div>`;
+   bindFields(stage.querySelector('#peer-fields'),teamFields.slice(5,6));
+   bindFields(stage.querySelector('#response-fields'),teamFields.slice(6));
+   stage.querySelectorAll('[name="verdict"]').forEach(input=>{
+    input.checked=input.value===state.verdict;
+    input.onchange=()=>{state.verdict=input.value;save(i);};
+   });
+  }else{
+   const fields=[['case','Оригинална дефиниция',team.case],...teamFields.slice(2).map(([key,label])=>[key,label,state[key]]),['verdict','Решение на екипа',state.verdict]];
+   stage.innerHTML=`<h3>Резюме за 60 секунди</h3><dl class="excerpt">${fields.map(([,label,value])=>`<dt>${label}</dt><dd>${esc(value)||'Няма въведен отговор.'}</dd>`).join('')}</dl><div class="actions"><button class="btn alt" id="download">Изтегли решението</button></div><p class="muted small">Решението се пази на този лаптоп, когато браузърът позволява локално записване.</p>`;
+   stage.querySelector('#download').onclick=()=>{
+    const notes=[`Екип ${i+1} · ${team.name}`,team.structure,...fields.map(([,label,value])=>`${label}\n${value||''}`),...teamFields.slice(0,2).map(([key,label])=>`${label}\n${state[key]||''}`)].join('\n\n');
+    const url=URL.createObjectURL(new Blob([notes],{type:'text/plain;charset=utf-8'}));
+    const link=document.createElement('a');
+    link.href=url;link.download=`ekip_${i+1}_reshenie.txt`;link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+   };
+  }
+  if(step<2){
+   const advance=document.createElement('button');
+   advance.type='button';
+   advance.className='btn';
+   advance.textContent=step===0?'Към проверката':'Към защитата';
+   advance.onclick=()=>{show(step+1);steps.querySelector(`[data-team-step="${step+1}"]`).focus();};
+   const actions=document.createElement('div');
+   actions.className='actions';
+   actions.append(advance);
+   stage.append(actions);
+  }
+ }
+ show(teamStepByIndex[i]);
+}
+let quizAnswers={};
+let quizIndex=0;
+let quizBoardIndex=0;
+let quizSubmitted=false;
+function quiz(project=false){
+ const total=content.quiz.length;
+ const index=project?quizBoardIndex:quizIndex;
+ const item=content.quiz[index];
+ const answered=Object.keys(quizAnswers).length;
+ const score=content.quiz.filter((question,i)=>quizAnswers[i]===question.k).length;
+ const options=project
+  ? `<ol class="project-options" type="A">${item.a.map((answer,j)=>`<li><b>${alphabet[j]})</b> ${answer}</li>`).join('')}</ol>`
+  : `<fieldset class="quizitem"${quizSubmitted?' disabled':''}><legend>Изберете един отговор</legend>${item.a.map((answer,j)=>`<label><input type="radio" name="answer" value="${j}"${quizAnswers[index]===j?' checked':''}><span>${alphabet[j]}) ${answer}</span></label>`).join('')}</fieldset>`;
+ const review=!project&&quizSubmitted
+  ? `<p class="feedback ${quizAnswers[index]===item.k?'correct':'incorrect'}">Верен отговор: ${alphabet[item.k]}. ${item.why}</p>`:'';
+ app.innerHTML=`<span class="eyebrow">${project?'Тест на общ екран':'Индивидуална проверка'}</span><h2>Шест въпроса</h2>
+ <div class="actions"><a class="btn alt" href="${project?'#quiz':'#quiz-board'}">${project?'Индивидуален тест':'Тест на дъската'}</a></div>
+ <section class="panel"><p class="step" id="quiz-progress">${project?'Въпрос '+(index+1)+' от '+total:quizSubmitted?'Резултат: '+score+' от '+total:'Отговорени: '+answered+' от '+total}</p>
+ <h3 id="quiz-question" tabindex="-1">${index+1}. ${item.q}</h3>${options}${review}
+ <div class="actions"><button class="btn alt" id="quiz-prev"${index===0?' disabled':''}>Назад</button><button class="btn alt" id="quiz-next"${index===total-1?' disabled':''}>Напред</button>
+ ${project?'':quizSubmitted?'<button class="btn alt" id="quiz-reset">Нов опит</button>':'<button class="btn" id="quiz-submit">Предай теста</button>'}</div>
+ ${project?'':'<p class="feedback incorrect" id="quiz-warning" aria-live="polite"></p>'}</section>`;
+ function move(next){
+  if(project)quizBoardIndex=next;
+  else quizIndex=next;
+  quiz(project);
+  document.querySelector('#quiz-question').focus();
+ }
+ document.querySelector('#quiz-prev').onclick=()=>move(index-1);
+ document.querySelector('#quiz-next').onclick=()=>move(index+1);
+ if(project)return;
+ if(quizSubmitted){
+  document.querySelector('#quiz-reset').onclick=()=>{quizAnswers={};quizSubmitted=false;move(0);};
+ }else{
+  document.querySelectorAll('[name="answer"]').forEach(input=>input.onchange=()=>{
+   quizAnswers[index]=Number(input.value);
+   document.querySelector('#quiz-progress').textContent='Отговорени: '+Object.keys(quizAnswers).length+' от '+total;
+   document.querySelector('#quiz-warning').textContent='';
+  });
+  document.querySelector('#quiz-submit').onclick=()=>{
+   const unanswered=content.quiz.findIndex((_,i)=>!Object.hasOwn(quizAnswers,i));
+   if(unanswered!==-1){
+    move(unanswered);
+    document.querySelector('#quiz-warning').textContent='Отговорете на всички въпроси, преди да предадете.';
+    return;
+   }
+   quizSubmitted=true;
+   move(0);
+  };
+ }
+}
+function route(){
+ const hash=location.hash.slice(1)||'teams';const team=/^team-([1-5])$/.exec(hash);
+ const current=team?'teams':hash==='quiz-board'?'quiz':['board','teams','quiz'].includes(hash)?hash:'start';
+ app.classList.toggle('team-shell',Boolean(team));
+ if(team)app.dataset.team=team[1];
+ else delete app.dataset.team;
+ document.querySelectorAll('nav a').forEach(link=>{if(link.hash==='#'+current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+ if(team)teamView(Number(team[1])-1);else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
+ window.scrollTo(0,0);
+}
+window.addEventListener('hashchange',route);route();
+</script>
+</body>
+</html>

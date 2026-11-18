@@ -262,7 +262,7 @@ function renderInstruments(){
  });
 }
 function teams(){
- app.innerHTML=`<span class="eyebrow">Режим за екипи</span><h2>Проверете дефиниция</h2><p class="muted">Изберете номера, който получите от учителя. Работете първо по основния казус.</p><div class="grid team-grid">${content.teams.map((team,i)=>`<section class="card" data-team="${i+1}"><span class="team-number" aria-hidden="true">0${i+1}</span><span class="eyebrow">Екип ${i+1}</span><h3>${team.name}</h3><a class="btn alt" href="#team-${i+1}">Влез в екип ${i+1}</a></section>`).join('')}</div>`;
+ app.innerHTML=`<span class="eyebrow">Режим за екипи</span><h2>Проверете дефиниция</h2><p class="muted">Изберете номера, който получите от учителя. Работете първо по основния казус.</p><div class="grid team-grid">${content.teams.map((team,i)=>`<section class="card" data-team="${i+1}"><span class="team-number" aria-hidden="true">0${i+1}</span><span class="eyebrow">Екип ${i+1}</span><h3>Понятие за дефиниране</h3><p><b>${team.name}</b></p><a class="btn alt" href="#team-${i+1}">Влез в екип ${i+1}</a></section>`).join('')}</div>`;
 }
 const teamSteps=['Анализирай','Провери','Защити'];
 const teamStepByIndex=content.teams.map(()=>0);
@@ -271,7 +271,7 @@ function teamView(i){
  const state=states[i];
  const previous=(i+4)%5+1;
  const next=(i+1)%5+1;
- app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1} · ${team.name}</h2>
+ app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1}</h2><p>Понятие за дефиниране: <b>${team.name}</b></p>
  <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
  const stage=document.querySelector('#team-stage');

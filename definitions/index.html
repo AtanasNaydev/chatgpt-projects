@@ -334,56 +334,32 @@ function teamView(i){
  }
  show(teamStepByIndex[i]);
 }
-let quizAnswers={};
-let quizIndex=0;
-let quizBoardIndex=0;
-let quizSubmitted=false;
+const quizSessions=[{},{}];
 function quiz(project=false){
- const total=content.quiz.length;
- const index=project?quizBoardIndex:quizIndex;
- const item=content.quiz[index];
- const answered=Object.keys(quizAnswers).length;
- const score=content.quiz.filter((question,i)=>quizAnswers[i]===question.k).length;
- const options=project
-  ? `<ol class="project-options" type="A">${item.a.map((answer,j)=>`<li><b>${alphabet[j]})</b> ${answer}</li>`).join('')}</ol>`
-  : `<fieldset class="quizitem"${quizSubmitted?' disabled':''}><legend>Изберете един отговор</legend>${item.a.map((answer,j)=>`<label><input type="radio" name="answer" value="${j}"${quizAnswers[index]===j?' checked':''}><span>${alphabet[j]}) ${answer}</span></label>`).join('')}</fieldset>`;
- const review=!project&&quizSubmitted
-  ? `<p class="feedback ${quizAnswers[index]===item.k?'correct':'incorrect'}">Верен отговор: ${alphabet[item.k]}. ${item.why}</p>`:'';
+ const mode=Number(project), state=quizSessions[mode];
+ const index=state.index??0, answers=state.answers??=[], item=content.quiz[index];
+ const total=content.quiz.length, checked=answers[index]!==undefined;
+ const score=answers.filter((answer,i)=>answer===content.quiz[i].k).length;
+ const complete=answers.length===total;
+ const options=item.a.map((answer,j)=>{
+  const mark=checked&&j===item.k?' ✓ Верен отговор':checked&&j===answers[index]?' ✗ Вашият избор':'';
+  return `<label><input type="radio" name="answer" value="${j}"${(checked?answers[index]:state.pick)===j?' checked':''}><span>${alphabet[j]}) ${answer}<strong>${mark}</strong></span></label>`;
+ }).join('');
  app.innerHTML=`<span class="eyebrow">${project?'Тест на общ екран':'Индивидуална проверка'}</span><h2>Шест въпроса</h2>
  <div class="actions"><a class="btn alt" href="${project?'#quiz':'#quiz-board'}">${project?'Индивидуален тест':'Тест на дъската'}</a></div>
- <section class="panel"><p class="step" id="quiz-progress">${project?'Въпрос '+(index+1)+' от '+total:quizSubmitted?'Резултат: '+score+' от '+total:'Отговорени: '+answered+' от '+total}</p>
- <h3 id="quiz-question" tabindex="-1">${index+1}. ${item.q}</h3>${options}${review}
- <div class="actions"><button class="btn alt" id="quiz-prev"${index===0?' disabled':''}>Назад</button><button class="btn alt" id="quiz-next"${index===total-1?' disabled':''}>Напред</button>
- ${project?'':quizSubmitted?'<button class="btn alt" id="quiz-reset">Нов опит</button>':'<button class="btn" id="quiz-submit">Предай теста</button>'}</div>
- ${project?'':'<p class="feedback incorrect" id="quiz-warning" aria-live="polite"></p>'}</section>`;
- function move(next){
-  if(project)quizBoardIndex=next;
-  else quizIndex=next;
-  quiz(project);
-  document.querySelector('#quiz-question').focus();
- }
+ <section class="panel"><p class="step">Въпрос ${index+1} от ${total}${complete?' · Резултат: '+score+' от '+total:''}</p>
+ <h3 id="quiz-question" tabindex="-1">${item.q}</h3><fieldset class="quizitem"${checked?' disabled':''}><legend>Изберете един отговор</legend>${options}</fieldset>
+ ${checked?`<p tabindex="-1" id="quiz-feedback" class="feedback ${answers[index]===item.k?'correct':'incorrect'}"><strong>${answers[index]===item.k?'Вярно!':'Грешно. Верният отговор е '+alphabet[item.k]+').'}</strong> ${item.why}</p>`:''}
+ <div class="actions"><button class="btn alt" id="quiz-prev"${index===0?' disabled':''}>Назад</button>
+ ${checked?(index+1<total?'<button class="btn" id="quiz-next">Следващ въпрос</button>':'<button class="btn" id="quiz-reset">Нов опит</button>'):`<button class="btn" id="quiz-check"${state.pick===undefined?' disabled':''}>Провери отговора</button>`}</div></section>`;
+ function move(to){state.index=to;quiz(project);document.querySelector('#quiz-question').focus();}
  document.querySelector('#quiz-prev').onclick=()=>move(index-1);
- document.querySelector('#quiz-next').onclick=()=>move(index+1);
- if(project)return;
- if(quizSubmitted){
-  document.querySelector('#quiz-reset').onclick=()=>{quizAnswers={};quizSubmitted=false;move(0);};
- }else{
-  document.querySelectorAll('[name="answer"]').forEach(input=>input.onchange=()=>{
-   quizAnswers[index]=Number(input.value);
-   document.querySelector('#quiz-progress').textContent='Отговорени: '+Object.keys(quizAnswers).length+' от '+total;
-   document.querySelector('#quiz-warning').textContent='';
-  });
-  document.querySelector('#quiz-submit').onclick=()=>{
-   const unanswered=content.quiz.findIndex((_,i)=>!Object.hasOwn(quizAnswers,i));
-   if(unanswered!==-1){
-    move(unanswered);
-    document.querySelector('#quiz-warning').textContent='Отговорете на всички въпроси, преди да предадете.';
-    return;
-   }
-   quizSubmitted=true;
-   move(0);
-  };
- }
+ if(!checked){
+  const check=document.querySelector('#quiz-check');
+  document.querySelectorAll('[name="answer"]').forEach(input=>input.onchange=()=>{state.pick=Number(input.value);check.disabled=false;});
+  check.onclick=()=>{if(state.pick===undefined)return;answers[index]=state.pick;delete state.pick;quiz(project);document.querySelector('#quiz-feedback').focus();};
+ }else if(index+1<total){document.querySelector('#quiz-next').onclick=()=>move(index+1);}
+ else{document.querySelector('#quiz-reset').onclick=()=>{quizSessions[mode]={};quiz(project);document.querySelector('#quiz-question').focus();};}
 }
 const classroomApi='https://definicii-classroom-api.onrender.com';
 let pollTimer;

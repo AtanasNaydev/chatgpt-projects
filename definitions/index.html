@@ -148,7 +148,7 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 </style>
 </head>
 <body>
-<header><div class="bar"><a class="brand" href="#start"><i aria-hidden="true">∴</i> Лаборатория за дефиниции</a><nav aria-label="Режими"><a href="#start">Начало</a><a href="#board">Дъска</a><a href="#teams">Екипи</a><a href="#quiz">Тест</a></nav></div></header>
+<header><div class="bar"><a class="brand" href="#start"><i aria-hidden="true">∴</i> Лаборатория за дефиниции</a><nav aria-label="Режими"><a href="#start">Начало</a><a href="#teacher">Учител</a><a href="#board">Дъска</a><a href="#teams">Екипи</a><a href="#quiz">Тест</a></nav></div></header>
 <main id="app"></main>
 <footer>Философия и програмиране · 10. клас · 19 ноември 2026 г.</footer>
 <script>
@@ -202,7 +202,7 @@ function home(){
 
 const stages=['Структура','Лаборатория','Защита'];
 function boardView(){
- app.innerHTML='<span class="eyebrow">Режим за интерактивна дъска</span><h2>От дефиниция към проверка</h2><div class="chips" id="steps"></div><section id="stage" class="panel"></section>';
+ app.innerHTML='<span class="eyebrow">Режим за интерактивна дъска</span><h2>От дефиниция към проверка</h2><p><a class="btn alt" href="#teacher">Предадени решения</a></p><div class="chips" id="steps"></div><section id="stage" class="panel"></section>';
  document.querySelector('#steps').innerHTML=stages.map((name,i)=>`<button type="button" data-step="${i}">${i+1}. ${name}</button>`).join('');
  document.querySelectorAll('[data-step]').forEach(btn=>btn.onclick=()=>{board.step=Number(btn.dataset.step);renderStage();});
  renderStage();
@@ -294,8 +294,8 @@ function teamView(i){
   teamStepByIndex[i]=step;
   steps.querySelectorAll('button').forEach((button,j)=>button.setAttribute('aria-pressed',String(j===step)));
   if(step===0){
-   stage.innerHTML=`<h3>Какво работи в определението?</h3><p>${team.prompt}</p><div id="work-fields" class="stack two"></div>
-   <details><summary>Кратки задачи по структура</summary><p>Дефинирайте „${team.name.toLowerCase()}“. После отделете определяемото понятие, рода и белега в изречението „${team.structure}“</p><div id="short-fields" class="stack two"></div></details>
+   stage.innerHTML=`<h3>Анализ на основния казус</h3><p>${team.prompt}</p><div id="work-fields" class="stack two"></div>
+   <details><summary>Вашето понятие „${team.name}“ и задача по структура</summary><p>Дефинирайте „${team.name.toLowerCase()}“. После отделете определяемото понятие, рода и белега в изречението „${team.structure}“</p><div id="short-fields" class="stack two"></div></details>
    <details><summary>Допълнителни задачи</summary><p>Посочете спазеното или нарушеното правило и подкрепете извода си.</p><ul>${team.extras.map(item=>`<li>${item}</li>`).join('')}</ul></details>`;
    bindFields(stage.querySelector('#work-fields'),teamFields.slice(2,5));
    bindFields(stage.querySelector('#short-fields'),teamFields.slice(0,2));
@@ -311,6 +311,7 @@ function teamView(i){
   }else{
    const fields=[['case','Оригинална дефиниция',team.case],...teamFields.slice(2).map(([key,label])=>[key,label,state[key]]),['verdict','Решение на екипа',state.verdict]];
    stage.innerHTML=`<h3>Резюме за 60 секунди</h3><dl class="excerpt">${fields.map(([,label,value])=>`<dt>${label}</dt><dd>${esc(value)||'Няма въведен отговор.'}</dd>`).join('')}</dl><div class="actions"><button class="btn alt" id="download">Изтегли решението</button></div><p class="muted small">Решението се пази на този лаптоп, когато браузърът позволява локално записване.</p>`;
+   submissionPanel(stage,i,state);
    stage.querySelector('#download').onclick=()=>{
     const notes=[`Екип ${i+1} · ${team.name}`,team.structure,...fields.map(([,label,value])=>`${label}\n${value||''}`),...teamFields.slice(0,2).map(([key,label])=>`${label}\n${state[key]||''}`)].join('\n\n');
     const url=URL.createObjectURL(new Blob([notes],{type:'text/plain;charset=utf-8'}));
@@ -384,14 +385,103 @@ function quiz(project=false){
   };
  }
 }
+const classroomApi='https://definicii-classroom-api.onrender.com';
+let pollTimer;
+let selectedTeam=0;
+function recall(key){try{return localStorage.getItem(key)||'';}catch{return '';}}
+function remember(key,value){try{localStorage.setItem(key,value);}catch{}}
+let teacherRoom;
+try{teacherRoom=JSON.parse(recall('definition.teacher'));}catch{}
+let device=recall('definition.device');
+if(!device){
+ device=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
+ remember('definition.device',device);
+}
+async function classroom(path,data){
+ let response;
+ try{response=await fetch(classroomApi+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(90000)});}
+ catch{throw Error('Връзката се забави. Опитайте отново.');}
+ const answer=await response.json().catch(()=>({}));
+ if(!response.ok){const error=Error(answer.error||'Неуспешна връзка. Опитайте отново.');error.status=response.status;throw error;}
+ return answer;
+}
+function submissionPanel(stage,i,state){
+ const box=document.createElement('section');
+ box.className='panel';
+ box.innerHTML='<h3>Предаване на учителя</h3><label>Код от дъската <input aria-label="Код от дъската" inputmode="numeric" maxlength="6" placeholder="6 цифри"></label> <button class="btn">Предай на учителя</button><p role="status"></p>';
+ stage.prepend(box);
+ const input=box.querySelector('input'),button=box.querySelector('button'),status=box.querySelector('p');
+ input.value=recall('definition.studentCode');
+ button.onclick=async()=>{
+  const code=input.value.trim();
+  if(!/^\d{6}$/.test(code)){status.textContent='Въведете шестцифрения код от дъската.';input.focus();return;}
+  button.disabled=true;status.textContent='Изпращане…';
+  try{const fields={};for(const [key] of teamFields){if(state[key])fields[key]=state[key];}
+   if(state.verdict)fields.verdict=state.verdict;
+   await classroom('/submit',{code,team:i+1,device,fields});
+   remember('definition.studentCode',code);
+   status.textContent='Предадено на учителя. След редакция можете да предадете отново.';
+  }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+ };
+}
+function teacherView(){
+ clearTimeout(pollTimer);
+ app.innerHTML='<span class="eyebrow">За учителя</span><h2>Моят час</h2><section id="teacher-panel" class="panel"></section>';
+ const panel=document.querySelector('#teacher-panel');
+ if(!teacherRoom){
+  panel.innerHTML='<h3>Започнете с един бутон</h3><p>Покажете кода на класа. Всеки екип го въвежда при предаване.</p><button class="btn">Започни час</button><p role="status"></p>';
+  const button=panel.querySelector('button');button.onclick=async()=>{
+   button.disabled=true;panel.querySelector('[role=status]').textContent='Отваряне на часа…';
+   try{teacherRoom=await classroom('/create',{});remember('definition.teacher',JSON.stringify(teacherRoom));if(panel.isConnected)teacherView();}
+   catch(error){panel.querySelector('[role=status]').textContent=error.message;button.disabled=false;}
+  };return;
+ }
+ let answers={};
+ panel.innerHTML=`<h3>Код за предаване <strong style="letter-spacing:.13em">${esc(teacherRoom.code)}</strong></h3><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ const list=panel.querySelector('#room-teams'),projection=panel.querySelector('#projection');
+ function display(){
+  projection.replaceChildren();
+  const answer=answers[selectedTeam];if(!answer)return;
+  const team=content.teams[selectedTeam-1];
+  projection.innerHTML=`<h3>Решение на екип ${selectedTeam}</h3><div class="quote">${team.case}</div><dl class="excerpt">${[...teamFields,['verdict','Решение на екипа']].filter(([key])=>answer[key]).map(([key,label])=>`<dt>${label}</dt><dd>${esc(answer[key])}</dd>`).join('')}</dl><button class="btn alt" id="hide-work">Скрий отговора</button>`;
+  projection.querySelector('#hide-work').onclick=()=>{selectedTeam=0;display();};
+ }
+ const buttons=content.teams.map((_,i)=>{
+  const button=document.createElement('button');button.textContent='Екип '+(i+1)+' · изчаква';button.disabled=true;
+  list.append(button);button.onclick=()=>{selectedTeam=i+1;display();};return button;
+ });
+ let last='';
+ async function refresh(){
+  if(!panel.isConnected)return;
+  try{
+   const result=await classroom('/status',teacherRoom);
+   if(!panel.isConnected)return;
+   answers=result.teams;
+   const count=Object.keys(answers).length;
+   panel.querySelector('#room-status').textContent='Предадени решения: '+count+' от 5. Изберете екип, за да покажете отговора му.';
+   const signature=JSON.stringify(answers);
+   if(last!==signature){buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.textContent='Екип '+(i+1)+(answers[i+1]?' · покажи':' · изчаква');});display();last=signature;}
+  }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message;if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('details').open=true;return;}}
+  if(panel.isConnected)pollTimer=setTimeout(refresh,4000);
+ }
+ panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
+ panel.querySelector('#export-room').onclick=()=>{
+  const notes=Object.entries(answers).map(([id,answer])=>['Екип '+id,content.teams[id-1].case,...[...teamFields,['verdict','Решение']].filter(([k])=>answer[k]).map(([k,label])=>label+' — '+answer[k])].join('\n')).join('\n\n');
+  if(!notes){panel.querySelector('#room-status').textContent='Все още няма предадени решения.';return;}
+  const url=URL.createObjectURL(new Blob([notes],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='Resheniya_'+teacherRoom.code+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ };
+ refresh();
+}
+
 function route(){
+ clearTimeout(pollTimer);
  const hash=location.hash.slice(1)||'teams';const team=/^team-([1-5])$/.exec(hash);
- const current=team?'teams':hash==='quiz-board'?'quiz':['board','teams','quiz'].includes(hash)?hash:'start';
+ const current=team?'teams':hash==='quiz-board'?'quiz':['board','teams','quiz','teacher'].includes(hash)?hash:'start';
  app.classList.toggle('team-shell',Boolean(team));
  if(team)app.dataset.team=team[1];
  else delete app.dataset.team;
  document.querySelectorAll('nav a').forEach(link=>{if(link.hash==='#'+current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
- if(team)teamView(Number(team[1])-1);else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
+ if(team)teamView(Number(team[1])-1);else if(current==='teacher')teacherView();else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
  window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);route();

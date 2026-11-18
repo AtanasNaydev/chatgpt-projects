@@ -261,8 +261,30 @@ function renderInstruments(){
   target.querySelector(`[data-item="${item}"][data-value="${value}"]`).focus();
  });
 }
+let lessonCode='';
+try{lessonCode=sessionStorage.getItem('definition.lessonCode')||'';}catch{}
+function setLessonCode(value){
+ lessonCode=value;
+ try{sessionStorage.setItem('definition.lessonCode',value);}catch{}
+}
+function codeEntry(){
+ return `<section class="panel"><label for="lesson-code"><strong>Код на часа от дъската</strong></label>
+ <input id="lesson-code" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="6 цифри" value="${esc(lessonCode)}" aria-describedby="code-note" style="display:block;max-width:12em;margin:.5rem 0;padding:.6rem;font:inherit;letter-spacing:.15em">
+ <p id="code-note" role="status">${lessonCode.length===6?'Кодът е попълнен за този лаптоп.':'Въведете шестте цифри, показани от учителя.'}</p></section>`;
+}
+function bindCode(){
+ const input=document.querySelector('#lesson-code'),note=document.querySelector('#code-note');
+ input.oninput=()=>{
+  input.value=input.value.replace(/[^0-9]/g,'');
+  setLessonCode(input.value);
+  note.textContent=input.value.length===6?'Кодът е попълнен за този лаптоп.':'Въведете шестте цифри, показани от учителя.';
+  const submitCode=document.querySelector('#submit-code');
+  if(submitCode)submitCode.value=lessonCode;
+ };
+}
 function teams(){
- app.innerHTML=`<span class="eyebrow">Режим за екипи</span><h2>Проверете дефиниция</h2><p class="muted">Изберете номера, който получите от учителя. Работете първо по основния казус.</p><div class="grid team-grid">${content.teams.map((team,i)=>`<section class="card" data-team="${i+1}"><span class="team-number" aria-hidden="true">0${i+1}</span><span class="eyebrow">Екип ${i+1}</span><h3>Понятие за дефиниране</h3><p><b>${team.name}</b></p><a class="btn alt" href="#team-${i+1}">Влез в екип ${i+1}</a></section>`).join('')}</div>`;
+ app.innerHTML=`<span class="eyebrow">Режим за екипи</span><h2>Вход за екипите</h2>${codeEntry()}<h3>Изберете своя екип</h3><p class="muted">Учителят определя номера на екипа. Кодът на часа е общ за всички.</p><div class="grid team-grid">${content.teams.map((team,i)=>`<section class="card" data-team="${i+1}"><span class="team-number" aria-hidden="true">0${i+1}</span><span class="eyebrow">Екип ${i+1}</span><h3>Понятие за дефиниране</h3><p><b>${team.name}</b></p><a class="btn alt" href="#team-${i+1}">Влез в екип ${i+1}</a></section>`).join('')}</div>`;
+ bindCode();
 }
 const teamSteps=['Анализирай','Провери','Защити'];
 const teamStepByIndex=content.teams.map(()=>0);
@@ -271,9 +293,10 @@ function teamView(i){
  const state=states[i];
  const previous=(i+4)%5+1;
  const next=(i+1)%5+1;
- app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1}</h2><p>Понятие за дефиниране: <b>${team.name}</b></p>
+ app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1}</h2>${codeEntry()}<p>Понятие за дефиниране: <b>${team.name}</b></p>
  <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
+ bindCode();
  const stage=document.querySelector('#team-stage');
  const steps=document.querySelector('#team-steps');
  steps.innerHTML=teamSteps.map((label,j)=>`<button type="button" data-team-step="${j}">${j+1}. ${label}</button>`).join('');
@@ -384,10 +407,11 @@ async function classroom(path,data){
 function submissionPanel(stage,i,state){
  const box=document.createElement('section');
  box.className='panel';
- box.innerHTML='<h3>Предаване на учителя</h3><label>Код от дъската <input aria-label="Код от дъската" inputmode="numeric" maxlength="6" placeholder="6 цифри"></label> <button class="btn">Предай на учителя</button><p role="status"></p>';
+ box.innerHTML='<h3>Предаване на учителя</h3><label>Код от дъската <input id="submit-code" aria-label="Код от дъската" inputmode="numeric" maxlength="6" placeholder="6 цифри"></label> <button class="btn">Предай на учителя</button><p role="status"></p>';
  stage.prepend(box);
  const input=box.querySelector('input'),button=box.querySelector('button'),status=box.querySelector('p');
- input.value=recall('definition.studentCode');
+ input.value=lessonCode;
+ input.oninput=()=>{const top=document.querySelector('#lesson-code');top.value=input.value;top.oninput();};
  button.onclick=async()=>{
   const code=input.value.trim();
   if(!/^\d{6}$/.test(code)){status.textContent='Въведете шестцифрения код от дъската.';input.focus();return;}
@@ -395,7 +419,7 @@ function submissionPanel(stage,i,state){
   try{const fields={};for(const [key] of teamFields){if(state[key])fields[key]=state[key];}
    if(state.verdict)fields.verdict=state.verdict;
    await classroom('/submit',{code,team:i+1,device,fields});
-   remember('definition.studentCode',code);
+   setLessonCode(code);
    status.textContent='Предадено на учителя. След редакция можете да предадете отново.';
   }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
  };
@@ -405,7 +429,7 @@ function teacherView(){
  app.innerHTML='<span class="eyebrow">За учителя</span><h2>Моят час</h2><section id="teacher-panel" class="panel"></section>';
  const panel=document.querySelector('#teacher-panel');
  if(!teacherRoom){
-  panel.innerHTML='<h3>Започнете с един бутон</h3><p>Покажете кода на класа. Всеки екип го въвежда при предаване.</p><button class="btn">Започни час</button><p role="status"></p>';
+  panel.innerHTML='<h3>Започнете с един бутон</h3><p>Покажете кода на класа. На лаптопите отворете „Екипи“. Учениците въвеждат общия код над списъка и избират своя екип.</p><button class="btn">Започни час</button><p role="status"></p>';
   const button=panel.querySelector('button');button.onclick=async()=>{
    button.disabled=true;panel.querySelector('[role=status]').textContent='Отваряне на часа…';
    try{teacherRoom=await classroom('/create',{});remember('definition.teacher',JSON.stringify(teacherRoom));if(panel.isConnected)teacherView();}
@@ -413,7 +437,7 @@ function teacherView(){
   };return;
  }
  let answers={};
- panel.innerHTML=`<h3>Код за предаване <strong style="letter-spacing:.13em">${esc(teacherRoom.code)}</strong></h3><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ panel.innerHTML=`<h3>Код на часа <strong style="letter-spacing:.13em">${esc(teacherRoom.code)}</strong></h3><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
  const list=panel.querySelector('#room-teams'),projection=panel.querySelector('#projection');
  function display(){
   projection.replaceChildren();

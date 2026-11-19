@@ -160,6 +160,18 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 #projection:not(:empty){margin:20px 0;padding:20px;border:1px solid var(--line);border-radius:12px}
 #team-stage section.panel{box-shadow:none;background:#eff8f3}#team-stage [role=status]:empty{display:none}
 .key-view select,#seat-count{max-width:100%;font:inherit;padding:.5em;border-radius:8px}.key-view .quote{margin-top:1em;font-size:clamp(20px,2vw,30px)}#answer-key{margin-top:1em}
+
+.work-report{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}
+.work-card{min-width:0;padding:clamp(14px,2vw,24px);border:1px solid var(--line);border-top:4px solid #397672;border-radius:12px;background:#fbfdfc}
+.work-card:nth-child(2){border-top-color:#655897}
+.work-card:last-child{grid-column:1/-1;border-top-color:#a16a2c}
+.work-card h4{font-size:1rem;color:var(--muted);margin:0 0 6px}
+.work-card .task-subject{font-size:clamp(21px,2.2vw,29px);font-weight:750;line-height:1.2;margin-bottom:8px}
+.task-prompt{color:var(--muted);max-width:78ch}
+.work-card dl{margin:14px 0;border-top:1px solid var(--line);padding-top:10px}
+.work-card dt{font-weight:720;color:var(--teal)}
+.work-card dd{overflow-wrap:anywhere;white-space:pre-wrap;margin:3px 0 12px}
+@media(max-width:760px){.work-report{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -333,13 +345,32 @@ function teams(preferred=0, invitedCode=''){
 }
 const teamSteps=['Анализирай','Провери','Защити'];
 
+function exerciseGroups(i){
+ const team=content.teams[i];
+ return [
+  {title:'Съставете дефиниция',subject:'Понятие „'+team.name+'“',prompt:'Определете понятието чрез род и отличителен белег.',fields:[['definition','Дефиниция на екипа']],key:team.name},
+  {title:'Разглобете определението',subject:team.structure,prompt:'Посочете определяемото понятие, рода и отличителния белег в даденото изречение.',fields:[['structure','Разбор на екипа']],key:['Магазин','Билкар','Чай','Етажерка','Кухня'][i]},
+  {title:'Проверете определението',subject:team.case,prompt:team.prompt,fields:[...teamFields.slice(2,6),['verdict','Решение след възражението'],...teamFields.slice(6)],key:caseKeyTitles[i]}
+ ];
+}
+function taskHeading(group){
+ return `<h4>${esc(group.title)}</h4><p class="task-subject">${esc(group.subject)}</p><p class="task-prompt">${esc(group.prompt)}</p>`;
+}
+function exerciseReport(i,answer,teacher=false){
+ return '<div class="work-report">'+exerciseGroups(i).map(group=>{
+  const rows=group.fields.filter(([field])=>answer[field]?.trim()).map(([field,label])=>`<dt>${esc(label)}</dt><dd>${esc(answer[field])}</dd>`).join('');
+  return `<section class="work-card">${taskHeading(group)}${rows?`<dl>${rows}</dl>`:'<p class="muted">Няма въведен отговор по тази задача.</p>'}${teacher?`<button class="btn alt" data-model="${esc(group.key)}">Покажи примерен отговор</button>`:''}</section>`;
+ }).join('')+'</div>';
+}
+function reportText(i,answer){
+ return ['Екип '+(i+1),...exerciseGroups(i).map(g=>[g.title,g.subject,g.prompt,...g.fields.filter(([k])=>answer[k]?.trim()).map(([k,label])=>label+' — '+answer[k])].join('\n'))].join('\n\n');
+}
 function teamView(i){
  const team=content.teams[i];
  const state=states[i]=load(i);
  const previous=(i+4)%5+1;
  const next=(i+1)%5+1;
- app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">${membership?.lead===false?"Лични бележки · Говорителят предава общото решение.":"Говорител · От този лаптоп се предава общото решение."}</p><p>Основен казус за проверка</p>
- <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
+ app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">${membership?.lead===false?"Лични бележки · Говорителят предава общото решение.":"Говорител · От този лаптоп се предава общото решение."}</p><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
 
  const stage=document.querySelector('#team-stage');
@@ -362,11 +393,10 @@ function teamView(i){
   state.step=step;save(i);
   steps.querySelectorAll('button').forEach((button,j)=>button.setAttribute('aria-pressed',String(j===step)));
   if(step===0){
-   stage.innerHTML=`<h3>Анализ на основния казус</h3><p>${team.prompt}</p><div id="work-fields" class="stack two"></div>
-   <details><summary>Вашето понятие „${team.name}“ и задача по структура</summary><p>Дефинирайте „${team.name.toLowerCase()}“. После отделете определяемото понятие, рода и белега в изречението „${team.structure}“</p><div id="short-fields" class="stack two"></div></details>
+   const groups=exerciseGroups(i);
+   stage.innerHTML=`<h3>Задачи за екипа</h3><div class="work-report">${groups.map((group,n)=>`<section class="work-card">${taskHeading(group)}<div id="task-${n}" class="stack"></div></section>`).join('')}</div>
    <details><summary>Допълнителни задачи</summary><p>Посочете спазеното или нарушеното правило и подкрепете извода си.</p><ul>${team.extras.map(item=>`<li>${item}</li>`).join('')}</ul></details>`;
-   bindFields(stage.querySelector('#work-fields'),teamFields.slice(2,5));
-   bindFields(stage.querySelector('#short-fields'),teamFields.slice(0,2));
+   groups.forEach((group,n)=>bindFields(stage.querySelector('#task-'+n),n===2?teamFields.slice(2,5):group.fields));
   }else if(step===1){
    stage.innerHTML=`<h3>Разменете възражение</h3><p><b>Вашият казус:</b> „${team.case}“</p><p>Дайте своята формулировка на <b>екип ${next}</b>. Екип ${next} ви връща талона с възражение или нов пример. Запишете полученото възражение по-долу.</p><p>Междувременно разгледайте талона на <b>екип ${previous}</b>, добавете своето възражение и го върнете на екип ${previous}. Можете да размените възраженията и устно.</p>
    <div id="peer-fields" class="stack"></div><fieldset class="quizitem"><legend>Вашето решение</legend><label><input type="radio" name="verdict" value="Запазваме"> Запазваме работния вариант</label><label><input type="radio" name="verdict" value="Редактираме"> Редактираме работния вариант</label></fieldset><div id="response-fields" class="stack two"></div>`;
@@ -377,11 +407,10 @@ function teamView(i){
     input.onchange=()=>{state.verdict=input.value;save(i);};
    });
   }else{
-   const fields=[['case','Оригинална дефиниция',team.case],...teamFields.slice(2).map(([key,label])=>[key,label,state[key]]),['verdict','Решение на екипа',state.verdict]];
-   stage.innerHTML=`<h3>Резюме за 60 секунди</h3><dl class="excerpt">${fields.filter(([,label,value])=>value).map(([,label,value])=>`<dt>${label}</dt><dd>${esc(value)||'Няма въведен отговор.'}</dd>`).join('')}</dl><div class="actions"><button class="btn alt" id="download">Изтегли решението</button></div><p class="muted small">Решението се пази на този лаптоп, когато браузърът позволява локално записване.</p>`;
+   stage.innerHTML=`<h3>Защита на екипното решение</h3>${exerciseReport(i,state)}<div class="actions"><button class="btn alt" id="download">Изтегли решението</button></div><p class="muted small">Решението се пази на този лаптоп, когато браузърът позволява локално записване.</p>`;
    submissionPanel(stage,i,state);
    stage.querySelector('#download').onclick=()=>{
-    const notes=[`Екип ${i+1} · ${team.name}`,team.structure,...fields.map(([,label,value])=>`${label}\n${value||''}`),...teamFields.slice(0,2).map(([key,label])=>`${label}\n${state[key]||''}`)].join('\n\n');
+    const notes=reportText(i,state);
     const url=URL.createObjectURL(new Blob([notes],{type:'text/plain;charset=utf-8'}));
     const link=document.createElement('a');
     link.href=url;link.download=`ekip_${i+1}_reshenie.txt`;link.click();
@@ -539,8 +568,8 @@ function teacherView(){
   projection.replaceChildren();
   const answer=answers[selectedTeam];if(!answer)return;
   const team=content.teams[selectedTeam-1];
-  projection.innerHTML=`<h3>Решение на екип ${selectedTeam}</h3><div class="quote">${team.case}</div><dl class="excerpt">${[...teamFields,['verdict','Решение на екипа']].filter(([key])=>answer[key]).map(([key,label])=>`<dt>${label}</dt><dd>${esc(answer[key])}</dd>`).join('')}</dl>${key?'<button class="btn" id="compare-key">Покажи примерен отговор</button> ':''}<button class="btn alt" id="hide-work">Скрий решението на екипа</button>`;
-  if(key)projection.querySelector('#compare-key').onclick=()=>key.choose(caseKeyTitles[selectedTeam-1]);
+  projection.innerHTML=`<h3>Решение на екип ${selectedTeam} · ${esc(team.name)}</h3>${exerciseReport(selectedTeam-1,answer,Boolean(key))}<button class="btn alt" id="hide-work">Скрий решението на екипа</button>`;
+  projection.querySelectorAll('[data-model]').forEach(button=>button.onclick=()=>key.choose(button.dataset.model));
   projection.querySelector('#hide-work').onclick=()=>{key?.hide();selectedTeam=0;display();};
  }
  const buttons=content.teams.map((_,i)=>{
@@ -563,7 +592,7 @@ function teacherView(){
  }
  panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;unlockedKey=null;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
  panel.querySelector('#export-room').onclick=()=>{
-  const notes=Object.entries(answers).map(([id,answer])=>['Екип '+id,content.teams[id-1].case,...[...teamFields,['verdict','Решение']].filter(([k])=>answer[k]).map(([k,label])=>label+' — '+answer[k])].join('\n')).join('\n\n');
+  const notes=Object.entries(answers).map(([id,answer])=>reportText(Number(id)-1,answer)).join('\n\n');
   if(!notes){panel.querySelector('#room-status').textContent='Все още няма предадени решения.';return;}
   const url=URL.createObjectURL(new Blob([notes],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='Resheniya_'+teacherRoom.code+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  };

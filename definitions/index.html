@@ -176,17 +176,8 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 .work-card [data-model][aria-expanded="true"]{background:#e0f3eb}
 .source-text,.inline-model,.key-view .quote{white-space:pre-line}.source-text{max-width:84ch}
 
-#team-stage{padding:clamp(12px,1.4vw,18px)}
-#team-stage .work-report{gap:9px;margin:8px 0;align-items:start}
-#team-stage .work-card{padding:12px 14px}
-#team-stage .work-card h4{margin:0 0 4px}
-#team-stage .work-card .task-subject{font-size:clamp(18px,1.5vw,22px);margin-bottom:5px}
-#team-stage .task-prompt{margin:4px 0 7px;font-size:1rem;line-height:1.35}
-#team-stage .stack label{margin:4px 0;line-height:1.35}
-#team-stage .stack textarea{width:min(100%,58ch);min-height:38px;max-height:13rem;field-sizing:content;font:inherit;line-height:1.35;padding:6px 9px;margin-top:3px;overflow-y:auto}
-#team-stage #task-2,.peer-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px 12px}
-.peer-pair section{padding:10px 12px;border-left:3px solid var(--team);background:var(--team-pale);border-radius:5px}
-.peer-pair h4{margin:0 0 5px}.peer-pair p{margin:4px 0}
+#team-stage .stack textarea{width:min(100%,38ch);height:2.25em;min-height:2.25em;max-height:12em;padding:5px 8px;line-height:1.4;resize:vertical;overflow:auto}
+.source-prompt{margin:4px 0}.source-prompt summary{font-size:.9rem;padding:2px 0}
 </style>
 </head>
 <body>
@@ -367,13 +358,13 @@ const teamSteps=['Анализирай','Провери','Защити'];
 function exerciseGroups(i){
  const team=content.teams[i];
  return [
-  {title:original.sections[0][0],subject:'Понятие „'+team.name+'“',prompt:original.sections[0][1],fields:[['definition','Дефиниция на екипа']],key:team.name},
-  {title:original.sections[1][0],subject:team.structure,prompt:original.sections[1][1],fields:[['structure','Разбор на екипа']],key:team.structure},
-  {title:i===2?'Философско ателие · 2':original.sections[2][0],subject:team.case,prompt:team.prompt,fields:[...teamFields.slice(2,6),['verdict','Решение след възражението'],...teamFields.slice(6)],key:team.case}
+  {title:'Съставете дефиниция',subject:'Понятие „'+team.name+'“',prompt:original.sections[0][1],fields:[['definition','Дефиниция на екипа']],key:team.name},
+  {title:'Разглобете определението',subject:team.structure,prompt:original.sections[1][1],fields:[['structure','Разбор на екипа']],key:team.structure},
+  {title:'Проверете определението',subject:team.case,prompt:team.prompt,fields:[...teamFields.slice(2,6),['verdict','Решение след възражението'],...teamFields.slice(6)],key:team.case}
  ];
 }
 function taskHeading(group){
- return `<h4>${esc(group.title)}</h4><p class="task-subject">${esc(group.subject)}</p><p class="task-prompt">${esc(group.prompt)}</p>`;
+ return `<h4>${esc(group.title)}</h4><p class="task-subject">${esc(group.subject)}</p><details class="source-prompt"><summary>Условие от оригинала</summary><p class="task-prompt">${esc(group.prompt)}</p></details>`;
 }
 function exerciseReport(i,answer,teacher=false){
  return '<div class="work-report">'+exerciseGroups(i).map(group=>{
@@ -421,8 +412,8 @@ function teamView(i){
    groups.forEach((group,n)=>bindFields(stage.querySelector('#task-'+n),n===2?teamFields.slice(2,5):group.fields));
   }else if(step===1){
    stage.innerHTML=`<h3>Проверка между екипите</h3><p class="muted">Обменете формулировките устно или на талон.</p>
-   <div class="peer-pair"><section><h4>Вашата формулировка → ${teamLabel(next)}</h4><p>${esc(state.revision?.trim()||team.case)}</p><p>Поискайте възражение или нов пример. Когато го получите, запишете го в полето по-долу.</p></section>
-   <section><h4>Формулировка от ${teamLabel(previous)}</h4><p>Техният казус: ${esc(content.teams[previous-1].case)}</p><p>Изслушайте или прочетете тяхната формулировка. Дайте възражението си обратно на ${teamLabel(previous)}.</p></section></div>
+   <div><p><strong>Вашата формулировка → ${teamLabel(next)}</strong></p><p>${esc(state.revision?.trim()||team.case)}</p><p>Поискайте възражение или нов пример. Когато го получите, запишете го в полето по-долу.</p>
+   <p><strong>Формулировка от ${teamLabel(previous)}</strong></p><p>Техният казус: ${esc(content.teams[previous-1].case)}</p><p>Изслушайте или прочетете тяхната формулировка. Дайте възражението си обратно на ${teamLabel(previous)}.</p></div>
    <div id="peer-fields" class="stack"></div><fieldset class="quizitem"><legend>Вашето решение</legend><label><input type="radio" name="verdict" value="Запазваме"> Запазваме работния вариант</label><label><input type="radio" name="verdict" value="Редактираме"> Редактираме работния вариант</label></fieldset><div id="response-fields" class="stack two"></div>`;
    bindFields(stage.querySelector('#peer-fields'),[['peer','Получено възражение от '+teamLabel(next)]]);
    bindFields(stage.querySelector('#response-fields'),teamFields.slice(6));

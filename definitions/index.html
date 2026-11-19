@@ -171,9 +171,9 @@ const icons={
  remote:'<path d="M6 12h17l5 5v6H17l-2 9H8l2-12H6Z"/><path d="M31 14h4m-4 5h5m-5 5h4M10 16h8"/>'
 };
 function esc(value=''){return value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function load(i){try{return JSON.parse(localStorage.getItem('definition-lab-2026-team-'+i))||{};}catch{return {};}}
-function save(i){try{localStorage.setItem('definition-lab-2026-team-'+i,JSON.stringify(states[i]));}catch{/* Entries are retained in memory for this open tab. */}}
-content.teams.forEach((_,i)=>{states[i]=load(i);});
+function load(i){try{return JSON.parse(localStorage.getItem('definition-lab-'+lessonCode+'-team-'+i))||{};}catch{return {};}}
+function save(i){try{localStorage.setItem('definition-lab-'+lessonCode+'-team-'+i,JSON.stringify(states[i]));}catch{/* Entries are retained in memory for this open tab. */}}
+
 const modeIcons={
  board:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8m-4-4v4m-5-8 3-3 3 2 4-4"/>',
  teams:'<circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3 20v-2a5 5 0 0 1 10 0v2m1-6a5 5 0 0 1 7 4v2"/>',
@@ -263,40 +263,67 @@ function renderInstruments(){
 }
 let lessonCode='';
 try{lessonCode=sessionStorage.getItem('definition.lessonCode')||'';}catch{}
+let membership=null;
 function setLessonCode(value){
  lessonCode=value;
  try{sessionStorage.setItem('definition.lessonCode',value);}catch{}
 }
-function codeEntry(){
- return `<section class="panel"><label for="lesson-code"><strong>Код на часа от дъската</strong></label>
- <input id="lesson-code" type="text" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="6 цифри" value="${esc(lessonCode)}" aria-describedby="code-note" style="display:block;max-width:12em;margin:.5rem 0;padding:.6rem;font:inherit;letter-spacing:.15em">
- <p id="code-note" role="status">${lessonCode.length===6?'Кодът е попълнен за този лаптоп.':'Въведете шестте цифри, показани от учителя.'}</p></section>`;
-}
-function bindCode(){
- const input=document.querySelector('#lesson-code'),note=document.querySelector('#code-note');
- input.oninput=()=>{
-  input.value=input.value.replace(/[^0-9]/g,'');
-  setLessonCode(input.value);
-  note.textContent=input.value.length===6?'Кодът е попълнен за този лаптоп.':'Въведете шестте цифри, показани от учителя.';
-  const submitCode=document.querySelector('#submit-code');
-  if(submitCode)submitCode.value=lessonCode;
- };
-}
-function teams(){
- app.innerHTML=`<span class="eyebrow">Режим за екипи</span><h2>Вход за екипите</h2>${codeEntry()}<h3>Изберете своя екип</h3><p class="muted">Учителят определя номера на екипа. Кодът на часа е общ за всички.</p><div class="grid team-grid">${content.teams.map((team,i)=>`<section class="card" data-team="${i+1}"><span class="team-number" aria-hidden="true">0${i+1}</span><span class="eyebrow">Екип ${i+1}</span><h3>Понятие за дефиниране</h3><p><b>${team.name}</b></p><a class="btn alt" href="#team-${i+1}">Влез в екип ${i+1}</a></section>`).join('')}</div>`;
- bindCode();
+function teams(preferred=0){
+ app.innerHTML='<h2>Вход за екипите</h2><section class="panel" id="lobby"></section>';
+ const panel=document.querySelector('#lobby');
+ function entry(message=''){
+  panel.innerHTML=`<form><label for="lesson-code"><strong>Код на часа от дъската</strong></label>
+  <div class="actions"><input id="lesson-code" required inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="6 цифри" style="max-width:9em;padding:.6em;font:inherit;letter-spacing:.15em"><button class="btn">Влез в часа</button></div></form><p role="status"></p>`;
+  const input=panel.querySelector('input');
+  input.value=lessonCode;
+  panel.querySelector('[role=status]').textContent=message;
+  panel.querySelector('form').onsubmit=e=>{e.preventDefault();lookup(input.value.trim());};
+ }
+ async function lookup(code){
+  panel.innerHTML='<p role="status">Проверявам кода на часа…</p>';
+  try{
+   const room=await classroom('/lookup',{code,device});
+   if(!panel.isConnected)return;
+   setLessonCode(code);
+   if(preferred && room.mine.includes(preferred)){
+    membership={code,team:preferred};teamView(preferred-1);return;
+   }
+   panel.innerHTML=`<h3>Изберете своя екип</h3><p>Час ${esc(code)} · Изберете номера, определен от учителя.</p><div class="grid team-grid"></div><p role="status"></p><button class="btn alt" id="change-code">Друг код</button>`;
+   const grid=panel.querySelector('.grid');
+   for(const [i,team] of content.teams.entries()){
+    const n=i+1,mine=room.mine.includes(n),taken=room.taken.includes(n)&&!mine;
+    const button=document.createElement('button');
+    button.className='btn '+(mine||n===preferred?'':'alt');
+    button.disabled=taken;
+    button.textContent='Екип '+n+' · '+team.name+(taken?' · зает':mine?' · продължи':'');
+    grid.append(button);
+    button.onclick=async()=>{
+     grid.querySelectorAll('button').forEach(b=>b.disabled=true);
+     panel.querySelector('[role=status]').textContent='Присъединяване…';
+     try{
+      await classroom('/join',{code,device,team:n});
+      if(!panel.isConnected)return;
+      membership={code,team:n};
+      if(location.hash==='#team-'+n)teamView(n-1);else location.hash='team-'+n;
+     }catch(error){if(panel.isConnected){await lookup(code);if(panel.isConnected)panel.querySelector('[role=status]').textContent=error.message;}}
+    };
+   }
+   panel.querySelector('#change-code').onclick=()=>{membership=null;setLessonCode('');entry();panel.querySelector('input').focus();};
+  }catch(error){if(panel.isConnected){membership=null;entry(error.message);panel.querySelector('input').select();}}
+ }
+ if(/^\d{6}$/.test(lessonCode))lookup(lessonCode);else entry();
 }
 const teamSteps=['Анализирай','Провери','Защити'];
 const teamStepByIndex=content.teams.map(()=>0);
 function teamView(i){
  const team=content.teams[i];
- const state=states[i];
+ const state=states[i]=load(i);
  const previous=(i+4)%5+1;
  const next=(i+1)%5+1;
- app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1}</h2>${codeEntry()}<p>Понятие за дефиниране: <b>${team.name}</b></p>
+ app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1}</h2><p>Час ${esc(lessonCode)} · В екипа сте.</p><p>Понятие за дефиниране: <b>${team.name}</b></p>
  <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
- bindCode();
+
  const stage=document.querySelector('#team-stage');
  const steps=document.querySelector('#team-steps');
  steps.innerHTML=teamSteps.map((label,j)=>`<button type="button" data-team-step="${j}">${j+1}. ${label}</button>`).join('');
@@ -407,14 +434,11 @@ async function classroom(path,data){
 function submissionPanel(stage,i,state){
  const box=document.createElement('section');
  box.className='panel';
- box.innerHTML='<h3>Предаване на учителя</h3><label>Код от дъската <input id="submit-code" aria-label="Код от дъската" inputmode="numeric" maxlength="6" placeholder="6 цифри"></label> <button class="btn">Предай на учителя</button><p role="status"></p>';
+ box.innerHTML='<h3>Предаване на учителя</h3><button class="btn">Предай на учителя</button><p role="status"></p>';
  stage.prepend(box);
- const input=box.querySelector('input'),button=box.querySelector('button'),status=box.querySelector('p');
- input.value=lessonCode;
- input.oninput=()=>{const top=document.querySelector('#lesson-code');top.value=input.value;top.oninput();};
+ const button=box.querySelector('button'),status=box.querySelector('p');
+ const code=lessonCode;
  button.onclick=async()=>{
-  const code=input.value.trim();
-  if(!/^\d{6}$/.test(code)){status.textContent='Въведете шестцифрения код от дъската.';input.focus();return;}
   button.disabled=true;status.textContent='Изпращане…';
   try{const fields={};for(const [key] of teamFields){if(state[key])fields[key]=state[key];}
    if(state.verdict)fields.verdict=state.verdict;
@@ -429,7 +453,7 @@ function teacherView(){
  app.innerHTML='<span class="eyebrow">За учителя</span><h2>Моят час</h2><section id="teacher-panel" class="panel"></section>';
  const panel=document.querySelector('#teacher-panel');
  if(!teacherRoom){
-  panel.innerHTML='<h3>Започнете с един бутон</h3><p>Покажете кода на класа. На лаптопите отворете „Екипи“. Учениците въвеждат общия код над списъка и избират своя екип.</p><button class="btn">Започни час</button><p role="status"></p>';
+  panel.innerHTML='<h3>Започнете с един бутон</h3><p>Покажете кода на класа. На лаптопите отворете „Екипи“. Учениците въвеждат общия код и натискат „Влез в часа“, след което избират своя екип.</p><button class="btn">Започни час</button><p role="status"></p>';
   const button=panel.querySelector('button');button.onclick=async()=>{
    button.disabled=true;panel.querySelector('[role=status]').textContent='Отваряне на часа…';
    try{teacherRoom=await classroom('/create',{});remember('definition.teacher',JSON.stringify(teacherRoom));if(panel.isConnected)teacherView();}
@@ -459,8 +483,8 @@ function teacherView(){
    answers=result.teams;
    const count=Object.keys(answers).length;
    panel.querySelector('#room-status').textContent='Предадени решения: '+count+' от 5. Изберете екип, за да покажете отговора му.';
-   const signature=JSON.stringify(answers);
-   if(last!==signature){buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.textContent='Екип '+(i+1)+(answers[i+1]?' · покажи':' · изчаква');});display();last=signature;}
+   const signature=JSON.stringify([answers,result.joined]);
+   if(last!==signature){buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.textContent='Екип '+(i+1)+(answers[i+1]?' · предадено · покажи':result.joined?.includes(i+1)?' · работи':' · очаква екип');});display();last=signature;}
   }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message;if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('details').open=true;return;}}
   if(panel.isConnected)pollTimer=setTimeout(refresh,4000);
  }
@@ -481,7 +505,7 @@ function route(){
  if(team)app.dataset.team=team[1];
  else delete app.dataset.team;
  document.querySelectorAll('nav a').forEach(link=>{if(link.hash==='#'+current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
- if(team)teamView(Number(team[1])-1);else if(current==='teacher')teacherView();else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
+ if(team){const n=Number(team[1]);if(membership?.team===n&&membership.code===lessonCode)teamView(n-1);else teams(n);}else if(current==='teacher')teacherView();else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
  window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);route();

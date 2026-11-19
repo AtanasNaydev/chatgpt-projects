@@ -474,28 +474,42 @@ function submissionPanel(stage,i,state){
   }catch(error){status.textContent=error.message;}finally{button.disabled=state.receipt===signature;}
  };
 }
+let unlockedKey=null;
+const caseKeyTitles=['Слонът е голям бозайник','Логиката е наука за логичното','Растенията не са животни','Лъвът е царят на животните','Престолонаследник'];
 function answerKey(area){
- area.innerHTML='<details><summary>Учителски ключ за обсъждане</summary><form><label>Личен учителски код <input type="password" autocomplete="off" required></label> <button class="btn">Отключи</button></form><p role="status"></p><div class="key-view"></div></details>';
- const form=area.querySelector('form'),view=area.querySelector('.key-view'),status=area.querySelector('[role=status]');
+ const owner=teacherRoom.teacher;
+ area.innerHTML='<details><summary>Учителски ключ за обсъждане</summary><form><label>Личен учителски код <input type="password" autocomplete="off" required></label> <button class="btn">Отключи</button></form><p role="status"></p><div class="key-view" hidden><label>Задача <select></select></label> <button class="btn" data-show>Покажи отговора</button> <button class="btn alt" data-hide>Скрий</button> <button class="btn alt" data-lock>Заключи</button><p class="quote" tabindex="-1" hidden></p></div></details>';
+ const form=area.querySelector('form'),view=area.querySelector('.key-view'),status=area.querySelector('[role=status]'),details=area.querySelector('details');
+ const select=view.querySelector('select'),answer=view.querySelector('.quote');
+ let requested='';
+ function hide(){answer.textContent='';answer.hidden=true;requested='';}
+ function show(){answer.textContent=unlockedKey.items[select.selectedIndex][1];answer.hidden=false;answer.focus();}
+ function choose(title){
+  requested=title;details.open=true;
+  if(view.hidden){form.querySelector('input').focus();return;}
+  const index=unlockedKey.items.findIndex(([label])=>label===title);
+  if(index<0){hide();return;}
+  select.selectedIndex=index;show();
+ }
+ function ready(){
+  form.hidden=true;view.hidden=false;status.textContent='';
+  for(const [title] of unlockedKey.items)select.add(new Option(title));
+  if(requested)choose(requested);
+ }
+ if(unlockedKey?.owner===owner)ready();
  form.onsubmit=async event=>{
-  event.preventDefault();
-  const pin=form.querySelector('input');const password=pin.value;pin.value='';
-  const button=form.querySelector('button');button.disabled=true;
-  try{
-   const {items}=await classroom('/key',{...teacherRoom,pin:password});
-   if(!area.isConnected)return;
-   form.hidden=true;status.textContent='';
-   view.innerHTML='<label>Задача <select></select></label> <button class="btn" data-show>Покажи отговора</button> <button class="btn alt" data-hide>Скрий</button> <button class="btn alt" data-lock>Заключи</button><p class="quote" hidden></p>';
-   const select=view.querySelector('select'),answer=view.querySelector('p');
-   for(const [title] of items)select.add(new Option(title));
-   const hide=()=>{answer.textContent='';answer.hidden=true;};
-   select.onchange=hide;
-   view.querySelector('[data-show]').onclick=()=>{answer.textContent=items[select.selectedIndex][1];answer.hidden=false;};
-   view.querySelector('[data-hide]').onclick=hide;
-   view.querySelector('[data-lock]').onclick=()=>answerKey(area);
-   area.querySelector('details').ontoggle=e=>{if(!e.target.open)answerKey(area);};
+  event.preventDefault();const input=form.querySelector('input'),button=form.querySelector('button');
+  const password=input.value;input.value='';button.disabled=true;
+  try{const {items}=await classroom('/key',{...teacherRoom,pin:password});
+   if(!area.isConnected||!details.open)return;
+   unlockedKey={owner,items};ready();
   }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
  };
+ select.onchange=hide;view.querySelector('[data-show]').onclick=show;
+ view.querySelector('[data-hide]').onclick=hide;
+ view.querySelector('[data-lock]').onclick=()=>{hide();unlockedKey=null;select.replaceChildren();form.hidden=false;view.hidden=true;details.open=false;};
+ details.ontoggle=()=>{if(!details.open)hide();};
+ return {choose,hide};
 }
 function teacherView(){
  clearTimeout(pollTimer);
@@ -513,7 +527,7 @@ function teacherView(){
  const cacheKey='definition.lastReceived.'+teacherRoom.teacher;
  try{answers=JSON.parse(recall(cacheKey))||{};}catch{}
  panel.innerHTML=`<div class="room-banner"><div><span>Код на часа</span><strong>${esc(teacherRoom.code)}</strong></div><div><button class="btn" id="invite">Копирай вход за учениците</button><p id="invite-note" role="status"></p></div></div><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><section id="answer-key"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
- if(teacherRoom.code.startsWith('0'))answerKey(panel.querySelector('#answer-key'));
+ const key=teacherRoom.code.startsWith('0')?answerKey(panel.querySelector('#answer-key')):null;
  const inviteURL=location.href.split('#')[0]+'#join-'+teacherRoom.code;
  panel.querySelector('#invite').onclick=async()=>{
   const note=panel.querySelector('#invite-note');
@@ -525,12 +539,13 @@ function teacherView(){
   projection.replaceChildren();
   const answer=answers[selectedTeam];if(!answer)return;
   const team=content.teams[selectedTeam-1];
-  projection.innerHTML=`<h3>Решение на екип ${selectedTeam}</h3><div class="quote">${team.case}</div><dl class="excerpt">${[...teamFields,['verdict','Решение на екипа']].filter(([key])=>answer[key]).map(([key,label])=>`<dt>${label}</dt><dd>${esc(answer[key])}</dd>`).join('')}</dl><button class="btn alt" id="hide-work">Скрий отговора</button>`;
-  projection.querySelector('#hide-work').onclick=()=>{selectedTeam=0;display();};
+  projection.innerHTML=`<h3>Решение на екип ${selectedTeam}</h3><div class="quote">${team.case}</div><dl class="excerpt">${[...teamFields,['verdict','Решение на екипа']].filter(([key])=>answer[key]).map(([key,label])=>`<dt>${label}</dt><dd>${esc(answer[key])}</dd>`).join('')}</dl>${key?'<button class="btn" id="compare-key">Покажи примерен отговор</button> ':''}<button class="btn alt" id="hide-work">Скрий решението на екипа</button>`;
+  if(key)projection.querySelector('#compare-key').onclick=()=>key.choose(caseKeyTitles[selectedTeam-1]);
+  projection.querySelector('#hide-work').onclick=()=>{key?.hide();selectedTeam=0;display();};
  }
  const buttons=content.teams.map((_,i)=>{
   const button=document.createElement('button');button.textContent='Екип '+(i+1)+' · изчаква';button.disabled=true;
-  list.append(button);button.onclick=()=>{selectedTeam=i+1;display();};return button;
+  list.append(button);button.onclick=()=>{key?.hide();selectedTeam=i+1;display();};return button;
  });
  let last='';
  async function refresh(){
@@ -546,7 +561,7 @@ function teacherView(){
   }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message+(Object.keys(answers).length?' Запазените решения можете да изтеглите от „Управление на часа“.':'');if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('#new-room').closest('details').open=true;return;}}
   if(panel.isConnected)pollTimer=setTimeout(refresh,4000);
  }
- panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
+ panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;unlockedKey=null;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
  panel.querySelector('#export-room').onclick=()=>{
   const notes=Object.entries(answers).map(([id,answer])=>['Екип '+id,content.teams[id-1].case,...[...teamFields,['verdict','Решение']].filter(([k])=>answer[k]).map(([k,label])=>label+' — '+answer[k])].join('\n')).join('\n\n');
   if(!notes){panel.querySelector('#room-status').textContent='Все още няма предадени решения.';return;}

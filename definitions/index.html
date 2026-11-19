@@ -238,8 +238,73 @@ const stages=['Структура','Лаборатория','Защита'];
 function sourceView(){
  app.innerHTML='<h2>Оригинални материали</h2>'+[['Работен лист',original.word],['Философско ателие',original.atelier]].map(([name,lines])=>`<details class="panel"><summary>${name}</summary><div class="source-text">${lines.map(x=>`<p>${esc(x)}</p>`).join('')}</div></details>`).join('');
 }
+function handControl(host, room, teacher){
+ if(!room){
+  host.innerHTML='<a class="btn alt" href="#teacher">Започни час за вдигане на ръка</a>';
+  return;
+ }
+ const credentials=teacher?{code:room.code,teacher:room.teacher}:{code:room.code,device};
+ let timer,version=0,busy=false,handId=null,last='';
+ const action=document.createElement('div'), status=document.createElement('small');
+ action.className='actions';
+ status.setAttribute('role','status');
+ host.append(action,status);
+ function paint(data){
+  const value=JSON.stringify(data);
+  if(value===last)return;
+  last=value;
+  if(teacher){
+   action.replaceChildren();
+   const title=document.createElement('strong');
+   title.textContent='Вдигнати ръце · '+data.queue.length;
+   action.append(title);
+   for(const entry of data.queue){
+    const button=document.createElement('button');
+    button.className='btn alt';
+    button.textContent='Дай думата · '+content.teams[entry.team-1].name;
+    button.onclick=()=>request('/done',entry);
+    action.append(button);
+   }
+  }else{
+   handId=data.id;
+   let button=action.querySelector('button');
+   if(!button){
+    button=document.createElement('button');
+    button.className='btn alt';action.append(button);
+    button.onclick=()=>request(handId?'/lower':'/raise',handId?{id:handId}:{});
+   }
+   button.textContent=handId?'Свали ръката на екипа':'Вдигни ръка';
+   button.setAttribute('aria-pressed',String(Boolean(handId)));
+  }
+ }
+ async function request(path,extra={}){
+  if(!host.isConnected||busy)return;
+  clearTimeout(timer);
+  const ticket=++version;
+  busy=!['/queue','/mine'].includes(path);
+  if(busy)action.querySelectorAll('button').forEach(b=>b.disabled=true);
+  try{
+   const response=await fetch('https://definicii-live-hands.onrender.com'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...credentials,...extra}),signal:AbortSignal.timeout(75000)});
+   if(!response.ok)throw Error(response.status===404?'Проверете дали часът е активен.':'Връзката се забави. Повторен опит…');
+   const data=await response.json();
+   if(!host.isConnected||ticket!==version)return;
+   paint(data);
+   status.textContent=teacher?'':handId?'Екипът ви чака думата.':'';
+  }catch(e){if(host.isConnected&&ticket===version)status.textContent=e.message.includes('Проверете')?e.message:'Няма връзка с вдигнатите ръце. Повторен опит…';}
+  finally{
+   if(host.isConnected&&ticket===version){
+    busy=false;action.querySelectorAll('button').forEach(b=>b.disabled=false);
+    timer=setTimeout(()=>request(teacher?'/queue':'/mine'),4000);
+   }
+  }
+ }
+ status.textContent='Свързване с вдигнатите ръце…';
+ request(teacher?'/queue':'/mine');
+}
+
 function boardView(){
- app.innerHTML='<span class="eyebrow">Режим за интерактивна дъска</span><h2>От дефиниция към проверка</h2><p><a class="btn alt" href="#teacher">Предадени решения</a></p><div class="chips" id="steps"></div><section id="stage" class="panel"></section>';
+ app.innerHTML='<span class="eyebrow">Режим за интерактивна дъска</span><h2>От дефиниция към проверка</h2><p><a class="btn alt" href="#teacher">Предадени решения</a></p><div id="board-hands"></div><div class="chips" id="steps"></div><section id="stage" class="panel"></section>';
+ handControl(document.querySelector('#board-hands'),teacherRoom||membership,Boolean(teacherRoom));
  document.querySelector('#steps').innerHTML=stages.map((name,i)=>`<button type="button" data-step="${i}">${i+1}. ${name}</button>`).join('');
  document.querySelectorAll('[data-step]').forEach(btn=>btn.onclick=()=>{board.step=Number(btn.dataset.step);renderStage();});
  renderStage();
@@ -383,9 +448,10 @@ function teamView(i){
  const previous=(i+count-1)%count+1;
  const next=(i+1)%count+1;
  const teamLabel=n=>'екип '+n+' · '+content.teams[n-1].name;
- app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">${membership?.lead===false?"Лични бележки · Говорителят предава общото решение.":"Говорител · От този лаптоп се предава общото решение."}</p><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
+ app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">${membership?.lead===false?"Лични бележки · Говорителят предава общото решение.":"Говорител · От този лаптоп се предава общото решение."}</p><div id="team-hands"></div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
 
+ handControl(document.querySelector('#team-hands'),membership,false);
  const stage=document.querySelector('#team-stage');
  const steps=document.querySelector('#team-steps');
  steps.innerHTML=teamSteps.map((label,j)=>`<button type="button" data-team-step="${j}">${j+1}. ${label}</button>`).join('');
@@ -611,7 +677,8 @@ function teacherView(){
  let answers={};
  const cacheKey='definition.lastReceived.'+teacherRoom.teacher;
  try{answers=JSON.parse(recall(cacheKey))||{};}catch{}
- panel.innerHTML=`<div class="room-banner"><div><span>Код на часа</span><strong>${esc(teacherRoom.code)}</strong></div><div><button class="btn" id="invite">Копирай вход за учениците</button><p id="invite-note" role="status"></p></div></div><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><section id="answer-key"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ panel.innerHTML=`<div class="room-banner"><div><span>Код на часа</span><strong>${esc(teacherRoom.code)}</strong></div><div><button class="btn" id="invite">Копирай вход за учениците</button><p id="invite-note" role="status"></p></div></div><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><div id="teacher-hands"></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><section id="answer-key"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ handControl(panel.querySelector('#teacher-hands'),teacherRoom,true);
  const key=teacherRoom.code.startsWith('0')?answerKey(panel.querySelector('#answer-key')):null;
  const inviteURL=location.href.split('#')[0]+'#join-'+teacherRoom.code;
  panel.querySelector('#invite').onclick=async()=>{

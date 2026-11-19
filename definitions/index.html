@@ -159,6 +159,7 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 #room-teams [data-status=done]{background:var(--teal);color:white}
 #projection:not(:empty){margin:20px 0;padding:20px;border:1px solid var(--line);border-radius:12px}
 #team-stage section.panel{box-shadow:none;background:#eff8f3}#team-stage [role=status]:empty{display:none}
+.key-view select,#seat-count{max-width:100%;font:inherit;padding:.5em;border-radius:8px}.key-view .quote{margin-top:1em;font-size:clamp(20px,2vw,30px)}#answer-key{margin-top:1em}
 </style>
 </head>
 <body>
@@ -300,25 +301,27 @@ function teams(preferred=0, invitedCode=''){
    if(!panel.isConnected)return;
    setLessonCode(code);
    if(preferred && room.mine.includes(preferred)){
-    membership={code,team:preferred};teamView(preferred-1);return;
+    membership={code,team:preferred,lead:room.lead!==false};teamView(preferred-1);return;
    }
-   panel.innerHTML=`<h3>Изберете своя екип</h3><p>Час ${esc(code)} · Изберете номера, определен от учителя.</p><div class="grid team-grid"></div><p role="status"></p><button class="btn alt" id="change-code">Друг код</button>`;
+   panel.innerHTML=`<h3>Изберете своя екип</h3><p>Час ${esc(code)} · Изберете номера, определен от учителя.</p>${room.counts?'<label>Ученици на този лаптоп <select id="seat-count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label><p class="muted">Първият лаптоп в екипа предава общото решение.</p>':''}<div class="grid team-grid"></div><p role="status"></p><button class="btn alt" id="change-code">Друг код</button>`;
    const grid=panel.querySelector('.grid');
+   const size=panel.querySelector('#seat-count');
+   if(size)size.value=room.mySize||1;
    for(const [i,team] of content.teams.entries()){
     const n=i+1,mine=room.mine.includes(n),taken=room.taken.includes(n)&&!mine;
     const button=document.createElement('button');
     button.className='btn '+(mine||n===preferred?'':'alt');
-    button.disabled=taken;
+    button.disabled=taken||(room.counts&&room.mine.length>0&&!mine);
     button.dataset.team=n;
-    button.innerHTML=`<small>Екип ${n}</small><strong>${esc(team.name)}</strong><span>${taken?'Зает':mine?'Продължи':'Влез в екипа'}</span>`;
+    button.innerHTML=`<small>Екип ${n}</small><strong>${esc(team.name)}</strong><span>${room.counts?(room.counts[n]||0)+'/5 · ':''}${taken?'Пълен':mine?'Продължи':'Влез в екипа'}</span>`;
     grid.append(button);
     button.onclick=async()=>{
      grid.querySelectorAll('button').forEach(b=>b.disabled=true);
      panel.querySelector('[role=status]').textContent='Присъединяване…';
      try{
-      await classroom('/join',{code,device,team:n});
+      const joined=await classroom('/join',{code,device,team:n,size:Number(size?.value||1)});
       if(!panel.isConnected)return;
-      membership={code,team:n};
+      membership={code,team:n,lead:joined.lead!==false};
       if(location.hash==='#team-'+n)teamView(n-1);else location.hash='team-'+n;
      }catch(error){if(panel.isConnected){await lookup(code);if(panel.isConnected)panel.querySelector('[role=status]').textContent=error.message;}}
     };
@@ -335,7 +338,7 @@ function teamView(i){
  const state=states[i]=load(i);
  const previous=(i+4)%5+1;
  const next=(i+1)%5+1;
- app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">Основен казус за проверка</p>
+ app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">${membership?.lead===false?"Лични бележки · Говорителят предава общото решение.":"Говорител · От този лаптоп се предава общото решение."}</p><p>Основен казус за проверка</p>
  <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
 
@@ -440,7 +443,7 @@ if(!device){
 }
 async function classroom(path,data){
  let response;
- try{response=await fetch(classroomApi+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(90000)});}
+ try{response=await fetch((path==='/create'||String(data.code).startsWith('0')?'https://definicii-ekipi.onrender.com':classroomApi)+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data),signal:AbortSignal.timeout(90000)});}
  catch{throw Error('Връзката се забави. Опитайте отново.');}
  const answer=await response.json().catch(()=>({}));
  if(!response.ok){const error=Error(answer.error||'Неуспешна връзка. Опитайте отново.');error.status=response.status;throw error;}
@@ -451,6 +454,7 @@ function submissionPanel(stage,i,state){
  box.className='panel';
  box.innerHTML='<h3>Предаване на учителя</h3><button class="btn">Предай на учителя</button><p role="status"></p>';
  stage.prepend(box);
+ if(membership?.lead===false){box.textContent='Обсъдете бележките си с говорителя. Общото решение се предава от неговия лаптоп.';return;}
  const button=box.querySelector('button'),status=box.querySelector('p');
  const code=lessonCode;
  const fields={};
@@ -470,6 +474,29 @@ function submissionPanel(stage,i,state){
   }catch(error){status.textContent=error.message;}finally{button.disabled=state.receipt===signature;}
  };
 }
+function answerKey(area){
+ area.innerHTML='<details><summary>Учителски ключ за обсъждане</summary><form><label>Личен учителски код <input type="password" autocomplete="off" required></label> <button class="btn">Отключи</button></form><p role="status"></p><div class="key-view"></div></details>';
+ const form=area.querySelector('form'),view=area.querySelector('.key-view'),status=area.querySelector('[role=status]');
+ form.onsubmit=async event=>{
+  event.preventDefault();
+  const pin=form.querySelector('input');const password=pin.value;pin.value='';
+  const button=form.querySelector('button');button.disabled=true;
+  try{
+   const {items}=await classroom('/key',{...teacherRoom,pin:password});
+   if(!area.isConnected)return;
+   form.hidden=true;status.textContent='';
+   view.innerHTML='<label>Задача <select></select></label> <button class="btn" data-show>Покажи отговора</button> <button class="btn alt" data-hide>Скрий</button> <button class="btn alt" data-lock>Заключи</button><p class="quote" hidden></p>';
+   const select=view.querySelector('select'),answer=view.querySelector('p');
+   for(const [title] of items)select.add(new Option(title));
+   const hide=()=>{answer.textContent='';answer.hidden=true;};
+   select.onchange=hide;
+   view.querySelector('[data-show]').onclick=()=>{answer.textContent=items[select.selectedIndex][1];answer.hidden=false;};
+   view.querySelector('[data-hide]').onclick=hide;
+   view.querySelector('[data-lock]').onclick=()=>answerKey(area);
+   area.querySelector('details').ontoggle=e=>{if(!e.target.open)answerKey(area);};
+  }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+ };
+}
 function teacherView(){
  clearTimeout(pollTimer);
  app.innerHTML='<span class="eyebrow">За учителя</span><h2>Моят час</h2><section id="teacher-panel" class="panel"></section>';
@@ -485,7 +512,8 @@ function teacherView(){
  let answers={};
  const cacheKey='definition.lastReceived.'+teacherRoom.teacher;
  try{answers=JSON.parse(recall(cacheKey))||{};}catch{}
- panel.innerHTML=`<div class="room-banner"><div><span>Код на часа</span><strong>${esc(teacherRoom.code)}</strong></div><div><button class="btn" id="invite">Копирай вход за учениците</button><p id="invite-note" role="status"></p></div></div><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ panel.innerHTML=`<div class="room-banner"><div><span>Код на часа</span><strong>${esc(teacherRoom.code)}</strong></div><div><button class="btn" id="invite">Копирай вход за учениците</button><p id="invite-note" role="status"></p></div></div><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><section id="answer-key"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ if(teacherRoom.code.startsWith('0'))answerKey(panel.querySelector('#answer-key'));
  const inviteURL=location.href.split('#')[0]+'#join-'+teacherRoom.code;
  panel.querySelector('#invite').onclick=async()=>{
   const note=panel.querySelector('#invite-note');
@@ -513,9 +541,9 @@ function teacherView(){
    answers=result.teams;
    const count=Object.keys(answers).length;
    panel.querySelector('#room-status').textContent='Влезли екипи: '+result.joined.length+' от 5 · Предадени решения: '+count+' от 5';
-   const signature=JSON.stringify([answers,result.joined]);
-   if(last!==signature){remember(cacheKey,JSON.stringify(answers));buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.dataset.status=answers[i+1]?'done':result.joined.includes(i+1)?'active':'waiting';button.textContent='Екип '+(i+1)+' · '+content.teams[i].name+' · '+(answers[i+1]?'Покажи решението':result.joined.includes(i+1)?'Работи':'Очаква се');});display();last=signature;}
-  }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message+(Object.keys(answers).length?' Запазените решения можете да изтеглите от „Управление на часа“.':'');if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('details').open=true;return;}}
+   const signature=JSON.stringify([answers,result.joined,result.counts]);
+   if(last!==signature){remember(cacheKey,JSON.stringify(answers));buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.dataset.status=answers[i+1]?'done':result.joined.includes(i+1)?'active':'waiting';button.textContent='Екип '+(i+1)+' · '+content.teams[i].name+(result.counts?' · '+(result.counts[i+1]||0)+'/5':'')+' · '+(answers[i+1]?'Покажи решението':result.joined.includes(i+1)?'Работи':'Очаква се');});display();last=signature;}
+  }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message+(Object.keys(answers).length?' Запазените решения можете да изтеглите от „Управление на часа“.':'');if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('#new-room').closest('details').open=true;return;}}
   if(panel.isConnected)pollTimer=setTimeout(refresh,4000);
  }
  panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};

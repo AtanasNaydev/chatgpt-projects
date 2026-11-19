@@ -145,6 +145,20 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 .term dd { margin: 2px 0 0; }
 .team-shell #team-stage { border-top: 3px solid var(--team); }
 @media (max-width: 600px) { .terms { grid-template-columns: 1fr; } }
+
+.room-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;background:var(--navy);color:white;padding:clamp(18px,3vw,36px);border-radius:14px}
+.room-banner strong{display:block;font:750 clamp(40px,6vw,76px)/1.1 system-ui;letter-spacing:.09em;font-variant-numeric:tabular-nums}
+.room-banner .btn{background:var(--mint);color:var(--navy)}
+#invite-note:empty{display:none}#invite-note{max-width:35ch;margin:8px 0 0}
+#lobby form{max-width:42rem;margin:12px auto}#lesson-code{border:2px solid #789992;border-radius:9px}
+#lobby .team-grid button{display:grid;align-content:start;justify-content:start;text-align:left;gap:4px;padding:16px;border-top:4px solid var(--team)}
+#lobby .team-grid strong{font-size:1.2rem}#lobby .team-grid small,#lobby .team-grid span{font-weight:600}
+#change-code{margin-top:14px}#room-status{margin:22px 0 10px;font-weight:750}
+#room-teams button:disabled{opacity:1;color:#465763;background:#f3f6f5;border-color:#d6e0dd}
+#room-teams [data-status=active]:disabled{color:#664300;background:#fff2d7;border-color:#d9b86b}
+#room-teams [data-status=done]{background:var(--teal);color:white}
+#projection:not(:empty){margin:20px 0;padding:20px;border:1px solid var(--line);border-radius:12px}
+#team-stage section.panel{box-shadow:none;background:#eff8f3}#team-stage [role=status]:empty{display:none}
 </style>
 </head>
 <body>
@@ -268,7 +282,7 @@ function setLessonCode(value){
  lessonCode=value;
  try{sessionStorage.setItem('definition.lessonCode',value);}catch{}
 }
-function teams(preferred=0){
+function teams(preferred=0, invitedCode=''){
  app.innerHTML='<h2>Вход за екипите</h2><section class="panel" id="lobby"></section>';
  const panel=document.querySelector('#lobby');
  function entry(message=''){
@@ -295,7 +309,8 @@ function teams(preferred=0){
     const button=document.createElement('button');
     button.className='btn '+(mine||n===preferred?'':'alt');
     button.disabled=taken;
-    button.textContent='Екип '+n+' · '+team.name+(taken?' · зает':mine?' · продължи':'');
+    button.dataset.team=n;
+    button.innerHTML=`<small>Екип ${n}</small><strong>${esc(team.name)}</strong><span>${taken?'Зает':mine?'Продължи':'Влез в екипа'}</span>`;
     grid.append(button);
     button.onclick=async()=>{
      grid.querySelectorAll('button').forEach(b=>b.disabled=true);
@@ -311,16 +326,16 @@ function teams(preferred=0){
    panel.querySelector('#change-code').onclick=()=>{membership=null;setLessonCode('');entry();panel.querySelector('input').focus();};
   }catch(error){if(panel.isConnected){membership=null;entry(error.message);panel.querySelector('input').select();}}
  }
- if(/^\d{6}$/.test(lessonCode))lookup(lessonCode);else entry();
+ if(invitedCode)lookup(invitedCode);else if(/^\d{6}$/.test(lessonCode))lookup(lessonCode);else entry();
 }
 const teamSteps=['Анализирай','Провери','Защити'];
-const teamStepByIndex=content.teams.map(()=>0);
+
 function teamView(i){
  const team=content.teams[i];
  const state=states[i]=load(i);
  const previous=(i+4)%5+1;
  const next=(i+1)%5+1;
- app.innerHTML=`<span class="eyebrow">Екип ${i+1} · 13 минути</span><h2>Екип ${i+1}</h2><p>Час ${esc(lessonCode)} · В екипа сте.</p><p>Понятие за дефиниране: <b>${team.name}</b></p>
+ app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">Основен казус за проверка</p>
  <div class="quote">${team.case}</div><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
 
@@ -333,7 +348,7 @@ function teamView(i){
    const wrapper=document.createElement('label');
    wrapper.textContent=label;
    const input=document.createElement('textarea');
-   input.rows=2;
+   input.rows=2;input.maxLength=4000;
    input.value=state[key]||'';
    input.addEventListener('input',()=>{state[key]=input.value;save(i);});
    wrapper.append(input);
@@ -341,7 +356,7 @@ function teamView(i){
   });
  }
  function show(step){
-  teamStepByIndex[i]=step;
+  state.step=step;save(i);
   steps.querySelectorAll('button').forEach((button,j)=>button.setAttribute('aria-pressed',String(j===step)));
   if(step===0){
    stage.innerHTML=`<h3>Анализ на основния казус</h3><p>${team.prompt}</p><div id="work-fields" class="stack two"></div>
@@ -360,7 +375,7 @@ function teamView(i){
    });
   }else{
    const fields=[['case','Оригинална дефиниция',team.case],...teamFields.slice(2).map(([key,label])=>[key,label,state[key]]),['verdict','Решение на екипа',state.verdict]];
-   stage.innerHTML=`<h3>Резюме за 60 секунди</h3><dl class="excerpt">${fields.map(([,label,value])=>`<dt>${label}</dt><dd>${esc(value)||'Няма въведен отговор.'}</dd>`).join('')}</dl><div class="actions"><button class="btn alt" id="download">Изтегли решението</button></div><p class="muted small">Решението се пази на този лаптоп, когато браузърът позволява локално записване.</p>`;
+   stage.innerHTML=`<h3>Резюме за 60 секунди</h3><dl class="excerpt">${fields.filter(([,label,value])=>value).map(([,label,value])=>`<dt>${label}</dt><dd>${esc(value)||'Няма въведен отговор.'}</dd>`).join('')}</dl><div class="actions"><button class="btn alt" id="download">Изтегли решението</button></div><p class="muted small">Решението се пази на този лаптоп, когато браузърът позволява локално записване.</p>`;
    submissionPanel(stage,i,state);
    stage.querySelector('#download').onclick=()=>{
     const notes=[`Екип ${i+1} · ${team.name}`,team.structure,...fields.map(([,label,value])=>`${label}\n${value||''}`),...teamFields.slice(0,2).map(([key,label])=>`${label}\n${state[key]||''}`)].join('\n\n');
@@ -382,7 +397,7 @@ function teamView(i){
    stage.append(actions);
   }
  }
- show(teamStepByIndex[i]);
+ show([0,1,2].includes(state.step)?state.step:0);
 }
 const quizSessions=[{},{}];
 function quiz(project=false){
@@ -438,14 +453,21 @@ function submissionPanel(stage,i,state){
  stage.prepend(box);
  const button=box.querySelector('button'),status=box.querySelector('p');
  const code=lessonCode;
+ const fields={};
+ for(const [key] of teamFields){if(state[key])fields[key]=state[key];}
+ if(state.verdict)fields.verdict=state.verdict;
+ const signature=JSON.stringify(fields);
+ const received=state.receipt===signature;
+ button.disabled=received;
+ if(received){button.textContent='Предадено ✓';status.textContent='Учителят получи тази версия.';}
+ else if(state.receipt){button.textContent='Предай промените';status.textContent='Имате промени след последното предаване.';}
  button.onclick=async()=>{
   button.disabled=true;status.textContent='Изпращане…';
-  try{const fields={};for(const [key] of teamFields){if(state[key])fields[key]=state[key];}
-   if(state.verdict)fields.verdict=state.verdict;
+  try{
    await classroom('/submit',{code,team:i+1,device,fields});
-   setLessonCode(code);
+   state.receipt=signature;save(i);button.textContent='Предадено ✓';
    status.textContent='Предадено на учителя. След редакция можете да предадете отново.';
-  }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+  }catch(error){status.textContent=error.message;}finally{button.disabled=state.receipt===signature;}
  };
 }
 function teacherView(){
@@ -461,7 +483,15 @@ function teacherView(){
   };return;
  }
  let answers={};
- panel.innerHTML=`<h3>Код на часа <strong style="letter-spacing:.13em">${esc(teacherRoom.code)}</strong></h3><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ const cacheKey='definition.lastReceived.'+teacherRoom.teacher;
+ try{answers=JSON.parse(recall(cacheKey))||{};}catch{}
+ panel.innerHTML=`<div class="room-banner"><div><span>Код на часа</span><strong>${esc(teacherRoom.code)}</strong></div><div><button class="btn" id="invite">Копирай вход за учениците</button><p id="invite-note" role="status"></p></div></div><div class="actions"><a class="btn alt" href="#board">Към лабораторията</a><a class="btn alt" href="#quiz-board">Тест на дъската</a></div><p id="room-status" role="status">Проверявам предадените решения…</p><div class="chips" id="room-teams"></div><section id="projection"></section><details><summary>Управление на часа</summary><button class="btn alt" id="export-room">Изтегли предадените решения</button> <button class="btn alt" id="new-room">Нов час</button></details>`;
+ const inviteURL=location.href.split('#')[0]+'#join-'+teacherRoom.code;
+ panel.querySelector('#invite').onclick=async()=>{
+  const note=panel.querySelector('#invite-note');
+  try{await navigator.clipboard.writeText(inviteURL);note.textContent='Линкът е копиран. Отваря направо избора на екип.';}
+  catch{note.textContent='Копирайте адреса: ';const input=document.createElement('input');input.readOnly=true;input.value=inviteURL;note.append(input);input.select();}
+ };
  const list=panel.querySelector('#room-teams'),projection=panel.querySelector('#projection');
  function display(){
   projection.replaceChildren();
@@ -482,10 +512,10 @@ function teacherView(){
    if(!panel.isConnected)return;
    answers=result.teams;
    const count=Object.keys(answers).length;
-   panel.querySelector('#room-status').textContent='Предадени решения: '+count+' от 5. Изберете екип, за да покажете отговора му.';
+   panel.querySelector('#room-status').textContent='Влезли екипи: '+result.joined.length+' от 5 · Предадени решения: '+count+' от 5';
    const signature=JSON.stringify([answers,result.joined]);
-   if(last!==signature){buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.textContent='Екип '+(i+1)+(answers[i+1]?' · предадено · покажи':result.joined?.includes(i+1)?' · работи':' · очаква екип');});display();last=signature;}
-  }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message;if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('details').open=true;return;}}
+   if(last!==signature){remember(cacheKey,JSON.stringify(answers));buttons.forEach((button,i)=>{button.disabled=!answers[i+1];button.dataset.status=answers[i+1]?'done':result.joined.includes(i+1)?'active':'waiting';button.textContent='Екип '+(i+1)+' · '+content.teams[i].name+' · '+(answers[i+1]?'Покажи решението':result.joined.includes(i+1)?'Работи':'Очаква се');});display();last=signature;}
+  }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message+(Object.keys(answers).length?' Запазените решения можете да изтеглите от „Управление на часа“.':'');if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('details').open=true;return;}}
   if(panel.isConnected)pollTimer=setTimeout(refresh,4000);
  }
  panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
@@ -500,12 +530,13 @@ function teacherView(){
 function route(){
  clearTimeout(pollTimer);
  const hash=location.hash.slice(1)||'teams';const team=/^team-([1-5])$/.exec(hash);
- const current=team?'teams':hash==='quiz-board'?'quiz':['board','teams','quiz','teacher'].includes(hash)?hash:'start';
+ const invitation=/^join-([0-9]{6})$/.exec(hash);
+ const current=team||invitation?'teams':hash==='quiz-board'?'quiz':['board','teams','quiz','teacher'].includes(hash)?hash:'start';
  app.classList.toggle('team-shell',Boolean(team));
  if(team)app.dataset.team=team[1];
  else delete app.dataset.team;
  document.querySelectorAll('nav a').forEach(link=>{if(link.hash==='#'+current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
- if(team){const n=Number(team[1]);if(membership?.team===n&&membership.code===lessonCode)teamView(n-1);else teams(n);}else if(current==='teacher')teacherView();else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
+ if(invitation)teams(0,invitation[1]);else if(team){const n=Number(team[1]);if(membership?.team===n&&membership.code===lessonCode)teamView(n-1);else teams(n);}else if(current==='teacher')teacherView();else if(current==='board')boardView();else if(current==='teams')teams();else if(current==='quiz')quiz(hash==='quiz-board');else home();
  window.scrollTo(0,0);
 }
 window.addEventListener('hashchange',route);route();

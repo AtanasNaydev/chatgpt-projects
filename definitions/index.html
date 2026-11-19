@@ -506,11 +506,24 @@ function submissionPanel(stage,i,state){
   }catch(error){status.textContent=error.message;}finally{button.disabled=state.receipt===signature;}
  };
 }
-let unlockedKey=null;
+const savedKeyName='definition.teacher.answerKey.v1';
+function readSavedKey(){
+ try{
+  const items=JSON.parse(recall(savedKeyName));
+  if(Array.isArray(items)&&items.length&&items.every(row=>Array.isArray(row)&&row.length===2&&row.every(v=>typeof v==='string')))return {items};
+ }catch{}
+ return null;
+}
+let unlockedKey=readSavedKey();
+window.addEventListener('storage',event=>{
+ if(event.key!==savedKeyName&&event.key!==null)return;
+ unlockedKey=readSavedKey();
+ if(location.hash==='#teacher')teacherView();
+});
 const caseKeyTitles=['Слонът е голям бозайник','Логиката е наука за логичното','Растенията не са животни','Лъвът е царят на животните','Престолонаследник'];
 function answerKey(area){
- const owner=teacherRoom.teacher;
- area.innerHTML='<details><summary>Учителски ключ за обсъждане</summary><form><label>Личен учителски код <input type="password" autocomplete="off" required></label> <button class="btn">Отключи</button></form><p role="status"></p><div class="key-view" hidden><label>Задача <select></select></label> <button class="btn" data-show>Покажи отговора</button> <button class="btn alt" data-hide>Скрий</button> <button class="btn alt" data-lock>Заключи</button><p class="quote" tabindex="-1" hidden></p></div></details>';
+
+ area.innerHTML='<details><summary>Учителски ключ за обсъждане</summary><form><label>Личен учителски код <input type="password" autocomplete="off" required></label> <button class="btn">Отключи</button></form><p role="status"></p><div class="key-view" hidden><label>Задача <select></select></label> <button class="btn" data-show>Покажи отговора</button> <button class="btn alt" data-hide>Скрий</button> <button class="btn alt" data-lock>Заключи на този браузър</button><p class="quote" tabindex="-1" hidden></p></div></details>';
  const form=area.querySelector('form'),view=area.querySelector('.key-view'),status=area.querySelector('[role=status]'),details=area.querySelector('details');
  const select=view.querySelector('select'),answer=view.querySelector('.quote');
  let active=null;
@@ -541,18 +554,18 @@ function answerKey(area){
   for(const [title] of unlockedKey.items)select.add(new Option(title));
   reveal();
  }
- if(unlockedKey?.owner===owner)ready();
+ if(unlockedKey)ready();
  form.onsubmit=async event=>{
   event.preventDefault();const input=form.querySelector('input'),button=form.querySelector('button');
   const password=input.value;input.value='';button.disabled=true;
   try{const {items}=await classroom('/key',{...teacherRoom,pin:password});
    if(!area.isConnected||(!details.open&&!active?.isConnected))return;
-   unlockedKey={owner,items};ready();
+   unlockedKey={items};remember(savedKeyName,JSON.stringify(items));ready();
   }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
  };
  select.onchange=hide;view.querySelector('[data-show]').onclick=show;
  view.querySelector('[data-hide]').onclick=hide;
- view.querySelector('[data-lock]').onclick=()=>{hide();unlockedKey=null;select.replaceChildren();form.hidden=false;view.hidden=true;details.open=false;};
+ view.querySelector('[data-lock]').onclick=()=>{hide();unlockedKey=null;remember(savedKeyName,'');select.replaceChildren();form.hidden=false;view.hidden=true;details.open=false;};
  details.ontoggle=()=>{if(!details.open&&!active)hide();};
  return {choose,hide};
 }
@@ -609,7 +622,7 @@ function teacherView(){
   }catch(error){if(panel.isConnected)panel.querySelector('#room-status').textContent=error.message+(Object.keys(answers).length?' Запазените решения можете да изтеглите от „Управление на часа“.':'');if(error.status===404||error.status===403){if(panel.isConnected)panel.querySelector('#new-room').closest('details').open=true;return;}}
   if(panel.isConnected)pollTimer=setTimeout(refresh,4000);
  }
- panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;unlockedKey=null;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
+ panel.querySelector('#new-room').onclick=()=>{if(!confirm('Да отворите ли нов час с нов код? Изтеглете нужните решения преди това.'))return;teacherRoom=null;selectedTeam=0;remember('definition.teacher','');teacherView();};
  panel.querySelector('#export-room').onclick=()=>{
   const notes=Object.entries(answers).map(([id,answer])=>reportText(Number(id)-1,answer)).join('\n\n');
   if(!notes){panel.querySelector('#room-status').textContent='Все още няма предадени решения.';return;}

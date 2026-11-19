@@ -172,6 +172,8 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 .work-card dt{font-weight:720;color:var(--teal)}
 .work-card dd{overflow-wrap:anywhere;white-space:pre-wrap;margin:3px 0 12px}
 @media(max-width:760px){.work-report{grid-template-columns:1fr}}
+.inline-model{margin:.65em 0 1em;padding:14px 18px;border-left:4px solid var(--teal);border-radius:6px;background:#e0f3eb;color:#163b35;font-size:clamp(18px,1.6vw,24px);line-height:1.45}
+.work-card [data-model][aria-expanded="true"]{background:#e0f3eb}
 </style>
 </head>
 <body>
@@ -359,7 +361,8 @@ function taskHeading(group){
 function exerciseReport(i,answer,teacher=false){
  return '<div class="work-report">'+exerciseGroups(i).map(group=>{
   const rows=group.fields.filter(([field])=>answer[field]?.trim()).map(([field,label])=>`<dt>${esc(label)}</dt><dd>${esc(answer[field])}</dd>`).join('');
-  return `<section class="work-card">${taskHeading(group)}${rows?`<dl>${rows}</dl>`:'<p class="muted">Няма въведен отговор по тази задача.</p>'}${teacher?`<button class="btn alt" data-model="${esc(group.key)}">Покажи примерен отговор</button>`:''}</section>`;
+  const reveal=teacher?`<button class="btn alt" aria-expanded="false" data-model="${esc(group.key)}">Покажи примерен отговор</button><div class="inline-model" role="region" aria-label="Примерен отговор" hidden></div>`:'';
+  return `<section class="work-card">${taskHeading(group)}${reveal}${rows?`<dl>${rows}</dl>`:'<p class="muted">Няма въведен отговор по тази задача.</p>'}</section>`;
  }).join('')+'</div>';
 }
 function reportText(i,answer){
@@ -510,34 +513,47 @@ function answerKey(area){
  area.innerHTML='<details><summary>Учителски ключ за обсъждане</summary><form><label>Личен учителски код <input type="password" autocomplete="off" required></label> <button class="btn">Отключи</button></form><p role="status"></p><div class="key-view" hidden><label>Задача <select></select></label> <button class="btn" data-show>Покажи отговора</button> <button class="btn alt" data-hide>Скрий</button> <button class="btn alt" data-lock>Заключи</button><p class="quote" tabindex="-1" hidden></p></div></details>';
  const form=area.querySelector('form'),view=area.querySelector('.key-view'),status=area.querySelector('[role=status]'),details=area.querySelector('details');
  const select=view.querySelector('select'),answer=view.querySelector('.quote');
- let requested='';
- function hide(){answer.textContent='';answer.hidden=true;requested='';}
- function show(){answer.textContent=unlockedKey.items[select.selectedIndex][1];answer.hidden=false;answer.focus();}
- function choose(title){
-  requested=title;details.open=true;
-  if(view.hidden){form.querySelector('input').focus();return;}
-  const index=unlockedKey.items.findIndex(([label])=>label===title);
-  if(index<0){hide();return;}
-  select.selectedIndex=index;show();
+ let active=null;
+ function hide(){
+  if(active){
+   details.insertBefore(form,view);details.insertBefore(status,view);
+   active.nextElementSibling.replaceChildren();active.nextElementSibling.hidden=true;
+   active.setAttribute('aria-expanded','false');active.textContent='Покажи примерен отговор';active=null;
+  }
+  answer.textContent='';answer.hidden=true;status.textContent='';
+ }
+ function show(){hide();answer.textContent=unlockedKey.items[select.selectedIndex][1];answer.hidden=false;answer.focus();}
+ function reveal(){
+  if(!active)return;
+  const target=active.nextElementSibling;
+  const item=unlockedKey.items.find(([label])=>label===active.dataset.model);
+  details.insertBefore(form,view);details.insertBefore(status,view);
+  target.textContent=item?item[1]:'Няма примерен отговор за тази задача.';
+ }
+ function choose(button){
+  const closing=active===button;hide();if(closing)return;
+  active=button;active.setAttribute('aria-expanded','true');active.textContent='Скрий примерния отговор';
+  const target=active.nextElementSibling;target.hidden=false;
+  if(view.hidden){target.append(form,status);form.querySelector('input').focus();}else reveal();
  }
  function ready(){
   form.hidden=true;view.hidden=false;status.textContent='';
   for(const [title] of unlockedKey.items)select.add(new Option(title));
-  if(requested)choose(requested);
+  reveal();
  }
  if(unlockedKey?.owner===owner)ready();
  form.onsubmit=async event=>{
   event.preventDefault();const input=form.querySelector('input'),button=form.querySelector('button');
   const password=input.value;input.value='';button.disabled=true;
   try{const {items}=await classroom('/key',{...teacherRoom,pin:password});
-   if(!area.isConnected||!details.open)return;
+   if(!area.isConnected||(!details.open&&!active?.isConnected))return;
    unlockedKey={owner,items};ready();
   }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
  };
  select.onchange=hide;view.querySelector('[data-show]').onclick=show;
  view.querySelector('[data-hide]').onclick=hide;
  view.querySelector('[data-lock]').onclick=()=>{hide();unlockedKey=null;select.replaceChildren();form.hidden=false;view.hidden=true;details.open=false;};
- details.ontoggle=()=>{if(!details.open)hide();};
+ details.ontoggle=()=>{if(!details.open&&!active)hide();};
  return {choose,hide};
 }
 function teacherView(){
@@ -564,12 +580,15 @@ function teacherView(){
   catch{note.textContent='Копирайте адреса: ';const input=document.createElement('input');input.readOnly=true;input.value=inviteURL;note.append(input);input.select();}
  };
  const list=panel.querySelector('#room-teams'),projection=panel.querySelector('#projection');
+ let rendered='';
  function display(){
-  projection.replaceChildren();
+  const signature=JSON.stringify([selectedTeam,answers[selectedTeam]]);
+  if(signature===rendered)return;
+  rendered=signature;key?.hide();projection.replaceChildren();
   const answer=answers[selectedTeam];if(!answer)return;
   const team=content.teams[selectedTeam-1];
   projection.innerHTML=`<h3>Решение на екип ${selectedTeam} · ${esc(team.name)}</h3>${exerciseReport(selectedTeam-1,answer,Boolean(key))}<button class="btn alt" id="hide-work">Скрий решението на екипа</button>`;
-  projection.querySelectorAll('[data-model]').forEach(button=>button.onclick=()=>key.choose(button.dataset.model));
+  projection.querySelectorAll('[data-model]').forEach(button=>button.onclick=()=>key.choose(button));
   projection.querySelector('#hide-work').onclick=()=>{key?.hide();selectedTeam=0;display();};
  }
  const buttons=content.teams.map((_,i)=>{

@@ -175,6 +175,18 @@ footer { padding: 7px 32px 20px; color: var(--muted); font-size: .86rem; }
 .inline-model{margin:.65em 0 1em;padding:14px 18px;border-left:4px solid var(--teal);border-radius:6px;background:#e0f3eb;color:#163b35;font-size:clamp(18px,1.6vw,24px);line-height:1.45}
 .work-card [data-model][aria-expanded="true"]{background:#e0f3eb}
 .source-text,.inline-model,.key-view .quote{white-space:pre-line}.source-text{max-width:84ch}
+
+#team-stage{padding:clamp(12px,1.4vw,18px)}
+#team-stage .work-report{gap:9px;margin:8px 0;align-items:start}
+#team-stage .work-card{padding:12px 14px}
+#team-stage .work-card h4{margin:0 0 4px}
+#team-stage .work-card .task-subject{font-size:clamp(18px,1.5vw,22px);margin-bottom:5px}
+#team-stage .task-prompt{margin:4px 0 7px;font-size:1rem;line-height:1.35}
+#team-stage .stack label{margin:4px 0;line-height:1.35}
+#team-stage .stack textarea{width:min(100%,58ch);min-height:38px;max-height:13rem;field-sizing:content;font:inherit;line-height:1.35;padding:6px 9px;margin-top:3px;overflow-y:auto}
+#team-stage #task-2,.peer-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:8px 12px}
+.peer-pair section{padding:10px 12px;border-left:3px solid var(--team);background:var(--team-pale);border-radius:5px}
+.peer-pair h4{margin:0 0 5px}.peer-pair p{margin:4px 0}
 </style>
 </head>
 <body>
@@ -376,8 +388,10 @@ function reportText(i,answer){
 function teamView(i){
  const team=content.teams[i];
  const state=states[i]=load(i);
- const previous=(i+4)%5+1;
- const next=(i+1)%5+1;
+ const count=content.teams.length;
+ const previous=(i+count-1)%count+1;
+ const next=(i+1)%count+1;
+ const teamLabel=n=>'екип '+n+' · '+content.teams[n-1].name;
  app.innerHTML=`<span class="eyebrow">Час ${esc(lessonCode)} · Екипна работа</span><h2>Екип ${i+1} · ${team.name}</h2><p class="muted">${membership?.lead===false?"Лични бележки · Говорителят предава общото решение.":"Говорител · От този лаптоп се предава общото решение."}</p><div class="chips" id="team-steps"></div><section class="panel" id="team-stage"></section>
  <div class="actions"><a class="btn alt" href="#teams">Всички екипи</a></div>`;
 
@@ -390,7 +404,7 @@ function teamView(i){
    const wrapper=document.createElement('label');
    wrapper.textContent=label;
    const input=document.createElement('textarea');
-   input.rows=2;input.maxLength=4000;
+   input.rows=1;input.maxLength=4000;
    input.value=state[key]||'';
    input.addEventListener('input',()=>{state[key]=input.value;save(i);});
    wrapper.append(input);
@@ -406,9 +420,11 @@ function teamView(i){
    <details><summary>Допълнителни задачи</summary><p></p>${[original.sections[2][1],original.atitle].map((prompt,j)=>{const list=team.extras.filter(x=>/^[А-Ж]\)/.test(x)===Boolean(j));return list.length?`<p>${esc(prompt)}</p><ul>${list.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'';}).join('')}</details>`;
    groups.forEach((group,n)=>bindFields(stage.querySelector('#task-'+n),n===2?teamFields.slice(2,5):group.fields));
   }else if(step===1){
-   stage.innerHTML=`<h3>Разменете възражение</h3><p class="muted">Допълнителна екипна дейност</p><p><b>Вашият казус:</b> „${team.case}“</p><p>Дайте своята формулировка на <b>екип ${next}</b>. Екип ${next} ви връща талона с възражение или нов пример. Запишете полученото възражение по-долу.</p><p>Междувременно разгледайте талона на <b>екип ${previous}</b>, добавете своето възражение и го върнете на екип ${previous}. Можете да размените възраженията и устно.</p>
+   stage.innerHTML=`<h3>Проверка между екипите</h3><p class="muted">Обменете формулировките устно или на талон.</p>
+   <div class="peer-pair"><section><h4>Вашата формулировка → ${teamLabel(next)}</h4><p>${esc(state.revision?.trim()||team.case)}</p><p>Поискайте възражение или нов пример. Когато го получите, запишете го в полето по-долу.</p></section>
+   <section><h4>Формулировка от ${teamLabel(previous)}</h4><p>Техният казус: ${esc(content.teams[previous-1].case)}</p><p>Изслушайте или прочетете тяхната формулировка. Дайте възражението си обратно на ${teamLabel(previous)}.</p></section></div>
    <div id="peer-fields" class="stack"></div><fieldset class="quizitem"><legend>Вашето решение</legend><label><input type="radio" name="verdict" value="Запазваме"> Запазваме работния вариант</label><label><input type="radio" name="verdict" value="Редактираме"> Редактираме работния вариант</label></fieldset><div id="response-fields" class="stack two"></div>`;
-   bindFields(stage.querySelector('#peer-fields'),teamFields.slice(5,6));
+   bindFields(stage.querySelector('#peer-fields'),[['peer','Получено възражение от '+teamLabel(next)]]);
    bindFields(stage.querySelector('#response-fields'),teamFields.slice(6));
    stage.querySelectorAll('[name="verdict"]').forEach(input=>{
     input.checked=input.value===state.verdict;

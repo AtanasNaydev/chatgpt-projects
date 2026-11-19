@@ -35,11 +35,29 @@ def process(path, data):
         room = db.execute("SELECT teacher FROM rooms WHERE code=?",(code,)).fetchone()
         if not room:
             return 404, {"error":"Няма отворен час с този код."}
+        if path in ("/lookup", "/join"):
+            device = data.get("device")
+            if not isinstance(device, str) or not re.fullmatch(r"[a-f0-9]{32}", device):
+                return 400, {"error":"Невалидно устройство."}
+            members = dict(db.execute("SELECT team,device FROM work WHERE code=?", (code,)))
+            if path == "/lookup":
+                return 200, {"taken":sorted(members), "mine":[n for n,d in members.items() if d == device]}
+            team = data.get("team")
+            if type(team) is not int or team not in range(1,6):
+                return 400, {"error":"Изберете екип от 1 до 5."}
+            if team in members and members[team] != device:
+                return 409, {"error":"Друг лаптоп вече е в този екип. Изберете свободен екип."}
+            if team not in members:
+                if db.execute("SELECT 1 FROM work WHERE code=? AND device=? AND body!='{}'", (code,device)).fetchone():
+                    return 409, {"error":"Този лаптоп вече предаде решение. Продължете със своя екип."}
+                db.execute("DELETE FROM work WHERE code=? AND device=? AND body='{}'", (code,device))
+                db.execute("INSERT INTO work VALUES(?,?,?,'{}')", (code,team,device))
+            return 200, {"team":team}
         if path == "/status":
             if data.get("teacher") != room[0]:
                 return 403, {"error":"Отворете учителския панел в браузъра, създал часа."}
-            rows=db.execute("SELECT team, body FROM work WHERE code=?",(code,))
-            return 200, {"teams":{str(n):json.loads(body) for n,body in rows}}
+            rows=list(db.execute("SELECT team, body FROM work WHERE code=?",(code,)))
+            return 200, {"joined":[n for n,_ in rows], "teams":{str(n):json.loads(body) for n,body in rows if body!="{}"}}
         if path == "/submit":
             team,device,fields=(data.get(k) for k in ("team","device","fields"))
             if type(team) is not int or team not in range(1,6) or not isinstance(device,str) or not re.fullmatch(r"[a-f0-9]{32}",device):
@@ -48,6 +66,8 @@ def process(path, data):
                 return 400, {"error":"Използвайте до 4000 знака за всяко поле."}
             if not any(fields.get(k,'').strip() for k in ('example','reason','revision','final')):
                 return 400, {"error":"Попълнете поне един аргумент или формулировка в „Анализирай“."}
+            if db.execute("SELECT 1 FROM work WHERE code=? AND device=? AND team!=?", (code,device,team)).fetchone() and not db.execute("SELECT 1 FROM work WHERE code=? AND device=? AND team=?", (code,device,team)).fetchone():
+                return 409, {"error":"Лаптопът е в друг екип. Върнете се към избора на екип."}
             body=json.dumps(fields,ensure_ascii=False)
             cursor=db.execute("INSERT INTO work VALUES(?,?,?,?) ON CONFLICT(code,team) DO UPDATE SET body=excluded.body WHERE work.device=excluded.device",(code,team,device,body))
             if not cursor.rowcount:
